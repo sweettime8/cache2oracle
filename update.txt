@@ -4,11 +4,16 @@
 3.Fix feedback No.4
 4.java doc cho file cls
 5. Do[1], Do[2], Do[3]
--------------------- update version 17/9/2023 ---------------------------
-1.Query [1]
-2.Kill [1] -> TABLE_NAME_REPO.DELETE(PARAM1,PARAM2,...);  -- dự án cần tự check hàm MIGRATE_UTILS để thay TABLE_NAME_REPO
-3.Kill [2] -> TABLE_NAME_REPO.DELETE(PARAM1,PARAM2,...);  -- dự án cần tự check hàm MIGRATE_UTILS để thay TABLE_NAME_REPO
-4.Kill [3] -> TABLE_NAME_REPO.DELETE(PARAM1,PARAM2,...);  -- dự án cần tự check hàm MIGRATE_UTILS để thay TABLE_NAME_REPO
-5.Kill [4] -> TABLE_NAME_REPO.DELETE();                   -- dự án cần tự check hàm MIGRATE_UTILS để thay TABLE_NAME_REPO
-6.update $$[1]
-7.$$[2]
+
+-------------------- update version 15/9/2023 ---------------------------
+1.  Query [1]
+2.  Kill [1] -> TABLE_NAME_REPO.DELETE(PARAM1,PARAM2,...);
+3.  Kill [2] -> TABLE_NAME_REPO.DELETE(PARAM1,PARAM2,...);
+4.  Kill [3] -> TABLE_NAME_REPO.DELETE(PARAM1,PARAM2,...);
+5.  Kill [4] -> TABLE_NAME_REPO.DELETE();
+6.  update $$[1]
+7.  $$[2]
+8.  TLEVEL
+9.  Write [1]
+10. comment
+11. @[1], @[2], ^[1] -> TABLE_NAME_REPO.FIND_BY_KEY(PARAM1,PARAM2,...);

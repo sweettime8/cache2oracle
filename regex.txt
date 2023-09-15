@@ -1,0 +1,11 @@
+[^\n]+      : Phần này là một nhóm con trong biểu thức.
+              [...] là một ký hiệu trong biểu thức chính quy để chỉ định một tập hợp các ký tự có thể match.
+              ^ khi đặt trong dấu [] bên trong thì nó đảo ngược tập hợp, nghĩa là nó sẽ match bất kỳ ký tự nào
+              ngoại trừ những ký tự nằm trong tập hợp này.
+              \n là ký tự xuống dòng.
+              + biểu thị cho việc match một hoặc nhiều ký tự liên tiếp.
+[^)]+       : tìm kiếm bất kỳ ký tự nào trừ ký tự đóng ngoặc )
+
+\s+         : Ký tự \s+ khớp với một hoặc nhiều ký tự khoảng trắng
+\w+         : để khớp với một hoặc nhiều ký tự từ
+[^)]*       : khớp với bất kỳ ký tự nào trừ dấu đóng ngoặc ")" và * cho phép khớp với 0 hoặc nhiều ký tự

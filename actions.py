@@ -424,7 +424,7 @@ def convert_editor():
                 # _MAC vào cuối và viết Hoa
                 output_str = (match[1].upper() + "_" + output_str + "_MAC").upper()
                 # trả lại chuỗi in ra :
-                output_str = output_str + "." + match[0].upper() + "(" + match[3] + ");"
+                output_str = output_str + "." + match[0].upper() + "(" + match[3] + ")"
 
                 # Replace đoạn pattern bằng chuỗi output_str
                 to_code_temp = to_code_temp.replace(input_str, output_str)
