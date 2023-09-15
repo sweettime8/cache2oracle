@@ -1,0 +1,14 @@
+-------------------  update version 14/9/2023 ---------------------------------
+1.Fix 1,2,3(feedback) :  INCLUDE_LIST chỉ chứa các xxx không có đuôi là .Storage
+2.Update Declare Method [1] :  sau Param là = value thì thay dấu "=" bằng DEFAULT.
+3.Fix feedback No.4
+4.java doc cho file cls
+5. Do[1], Do[2], Do[3]
+-------------------- update version 17/9/2023 ---------------------------
+1.Query [1]
+2.Kill [1] -> TABLE_NAME_REPO.DELETE(PARAM1,PARAM2,...);  -- dự án cần tự check hàm MIGRATE_UTILS để thay TABLE_NAME_REPO
+3.Kill [2] -> TABLE_NAME_REPO.DELETE(PARAM1,PARAM2,...);  -- dự án cần tự check hàm MIGRATE_UTILS để thay TABLE_NAME_REPO
+4.Kill [3] -> TABLE_NAME_REPO.DELETE(PARAM1,PARAM2,...);  -- dự án cần tự check hàm MIGRATE_UTILS để thay TABLE_NAME_REPO
+5.Kill [4] -> TABLE_NAME_REPO.DELETE();                   -- dự án cần tự check hàm MIGRATE_UTILS để thay TABLE_NAME_REPO
+6.update $$[1]
+7.$$[2]

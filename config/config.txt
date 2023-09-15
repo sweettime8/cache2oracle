@@ -1,0 +1,5 @@
+[config]
+http_port=8415
+http_server=localhost
+app_width=1400
+app_height=700

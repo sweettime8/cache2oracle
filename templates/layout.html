@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>App Mysql to PostgreeSql</title>
+    <!-- Meta -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0, minimal-ui">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <meta name="description" content=""/>
+    <meta name="keywords" content="">
+    <meta name="author" content="Phoenixcoded"/>
+    <!-- Favicon icon -->
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}" type="image/x-icon">
+    <!-- vendor css -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/sweetalert2.min.css') }}">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/filepond.css') }}">
+    <script src="{{ url_for('static', filename='js/filepond-plugin-file-validate-type.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/filepond.js') }}"></script>
+
+    <!-- CSS của CodeMirror -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/codemirror.min.css') }}">
+    <!--<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/codemirror.min.css">-->
+
+    <!-- JavaScript của CodeMirror -->
+    <script src="{{ url_for('static', filename='js/codemirror.min.js') }}"></script>
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/codemirror.min.js"></script>-->
+    <!-- Thêm ngôn ngữ hỗ trợ (vd: Java, C#, Python) -->
+{#    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/mode/clike/clike.min.js"></script>#}
+{#    <!-- Java -->#}
+{#    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/mode/python/python.min.js"></script>#}
+{#    <!-- Python -->#}
+
+</head>
+<body class="">
+<!-- [ Pre-loader ] start -->
+<div class="loader-bg">
+    <div class="loader-track">
+        <div class="loader-fill"></div>
+    </div>
+</div>
+<!-- [ Pre-loader ] End -->
+<!-- [ navigation menu ] start -->
+<nav class="pcoded-navbar  ">
+    <div class="navbar-wrapper  ">
+        <div class="navbar-content scroll-div ">
+
+            <div class="">
+                <div class="main-menu-header">
+                    <img class="img-radius" src="{{ url_for('static', filename='images/user/avatar-2.jpg') }}"
+                         alt="User-Profile-Image">
+
+                    <div class="user-details">
+                        <span>PID.SKU</span>
+                        <div id="more-details">coe - team</div>
+                    </div>
+                </div>
+            </div>
+
+            <ul class="nav pcoded-inner-navbar ">
+
+                <li class="nav-item pcoded-menu-caption">
+                    <label>Options</label>
+                </li>
+                <li class="nav-item">
+                    <a href="/convert-cls" class="nav-link "><span class="pcoded-micon"><i
+                            class="fa fa-random"></i></span><span class="pcoded-mtext">Convert CLS</span></a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="/convert-mac" class="nav-link "><span class="pcoded-micon"><i
+                            class="fa fa-random"></i></span><span class="pcoded-mtext">Convert MAC</span></a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="/" class="nav-link "><span class="pcoded-micon"><i
+                            class="fa fa-random"></i></span><span class="pcoded-mtext">Convert Code</span></a>
+                </li>
+
+            </ul>
+
+
+        </div>
+    </div>
+</nav>
+<!-- [ navigation menu ] end -->
+<!-- [ Header ] start -->
+
+
+<!-- [ Main Content ] start -->
+<div class="pcoded-main-container">
+    <div class="pcoded-content">
+
+        <!-- [ breadcrumb ] end -->
+        <!-- [ Main Content ] start -->
+
+        {% block body %}
+
+        {% endblock %}
+
+        <!-- [ Main Content ] end -->
+    </div>
+</div>
+<!-- [ Main Content ] end -->
+<!-- Warning Section start -->
+<!-- Older IE warning message -->
+<!--[if lt IE 11]>
+<div class="ie-warning">
+    <h1>Warning!!</h1>
+    <p>You are using an outdated version of Internet Explorer, please upgrade
+        <br/>to any of the following web browsers to access this website.
+    </p>
+    <div class="iew-container">
+        <ul class="iew-download">
+            <li>
+                <a href="http://www.google.com/chrome/">
+                    <img src="assets/images/browser/chrome.png" alt="Chrome">
+                    <div>Chrome</div>
+                </a>
+            </li>
+            <li>
+                <a href="https://www.mozilla.org/en-US/firefox/new/">
+                    <img src="assets/images/browser/firefox.png" alt="Firefox">
+                    <div>Firefox</div>
+                </a>
+            </li>
+            <li>
+                <a href="http://www.opera.com">
+                    <img src="assets/images/browser/opera.png" alt="Opera">
+                    <div>Opera</div>
+                </a>
+            </li>
+            <li>
+                <a href="https://www.apple.com/safari/">
+                    <img src="assets/images/browser/safari.png" alt="Safari">
+                    <div>Safari</div>
+                </a>
+            </li>
+            <li>
+                <a href="http://windows.microsoft.com/en-us/internet-explorer/download-ie">
+                    <img src="assets/images/browser/ie.png" alt="">
+                    <div>IE (11 & above)</div>
+                </a>
+            </li>
+        </ul>
+    </div>
+    <p>Sorry for the inconvenience!</p>
+</div>
+<![endif]-->
+<!-- Warning Section Ends -->
+
+<!-- Required Js -->
+<script src="{{ url_for('static', filename='js/vendor-all.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/plugins/bootstrap.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pcoded.min.js') }}"></script>
+
+<!-- Apex Chart -->
+<script src="{{ url_for('static', filename='js/plugins/apexcharts.min.js') }}"></script>
+
+<!-- custom-chart js -->
+<script src="{{ url_for('static', filename='js/pages/dashboard-main.js') }}"></script>
+<script src="{{ url_for('static', filename='js/sweetalert2.min.js') }}"></script>
+
+<script>
+    data_multi_file = [];
+
+    let inputElement = document.getElementById('folderfilepond');
+    // Khởi tạo FilePond với các tùy chọn
+    FilePond.registerPlugin(FilePondPluginFileValidateType)
+    fileAccepted = [
+        "text/xml", // Định dạng XML
+        "application/xml" // Định dạng XML
+    ]
+
+    let pond = FilePond.create(inputElement, {
+        allowMultiple: true, // Cho phép chọn nhiều tệp
+        allowReorder: true, // Cho phép sắp xếp lại thứ tự tệp đã chọn
+        maxFiles: 10, // Số lượng tệp tối đa cho phép
+        maxFileSize: '3MB', // Dung lượng tối đa cho mỗi tệp
+        maxTotalFileSize: '10MB', // Tổng dung lượng tối đa của tất cả tệp
+        maxFilepondSize: '3MB', // Dung lượng tối đa của mỗi tệp
+        acceptedFileTypes: fileAccepted,
+        labelFileTypeNotAllowed: 'Tệp không đúng định dạng',
+        server: {
+            process: (fieldName, file, metadata, load, error, progress, abort) => {
+                load();
+            }
+        },
+    });
+
+
+    function startConvert(urldata) {
+        console.log("## Mrd startConvert ##")
+        //clear trước khi check
+        data_multi_file.splice(0);
+        // Lấy tệp tin đã chọn trong FilePond
+        const files = pond.getFiles();
+        console.log(files);
+
+        // Kiểm tra xem có tệp nào được chọn không
+        if (files.length === 0) {
+            alert('Vui lòng chọn ít nhất một tệp.');
+            return;
+        }
+
+        document.getElementById('spinner1').style.display = 'inline-block';
+        // Tạo FormData để chứa các tệp tin được chọn
+        const formData = new FormData();
+        for (let i = 0; i < files.length; i++) {
+            formData.append('filepond', files[i].file);
+            // lưu trữ ra biên global để dùng khi export
+            data_multi_file.push(files[i].file);
+        }
+
+        // Gửi yêu cầu tải lên tệp lên server bằng cách sử dụng Fetch API hoặc XMLHttpRequest
+        console.log(formData)
+        if (urldata === 'mac') {
+            url = '/start-convert-mac';
+        } else if (urldata === 'cls') {
+            url = '/start-convert-cls';
+        }
+
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+        })
+            .then(response => response.json())
+            .then(data => {
+                // Xử lý kết quả từ server (nếu cần)
+                console.log("mrd process data")
+                // Hiển thị thông báo với SweetAlert
+                Swal.fire({
+                    icon: data.status === 'success' ? 'success' : 'error', // Icon thông báo (success, error, warning, info)
+                    text: "Convert Success", // Nội dung thông báo
+                    timer: 4000, // Thời gian tự động tắt thông báo (5 giây)
+                    toast: true, // Thông báo kiểu toast (true) hoặc popup (false)
+                    position: 'top-end', // Vị trí hiển thị thông báo (top, top-start, top-end, center, center-start, center-end, bottom, bottom-start, bottom-end)
+                    showConfirmButton: false, // Ẩn nút xác nhận
+                })
+            })
+            .catch(error => {
+                // Xử lý lỗi nếu có
+                console.error('Error:', error);
+            });
+
+        document.getElementById('spinner1').style.display = 'none';
+    }
+
+</script>
+
+<!-- JavaScript để kích hoạt CodeMirror -->
+<script>
+
+    // Kích hoạt CodeMirror trên textarea có id "code-editor"
+    function activateCodeMirror() {
+        var editor = CodeMirror.fromTextArea(document.getElementById("code-editor-1"), {
+            lineNumbers: true, // Hiển thị số dòng
+            mode: "text/x-plsql", // Ngôn ngữ lập trình (vd: Java, C#, Python)
+            theme: "default", // Chủ đề giao diện (vd: "default", "darcula", "3024-day", "3024-night",...)
+            indentUnit: 4, // Kích thước khoảng cách thụt vào (vd: 4 hoặc 2)
+        });
+
+        var editor2 = CodeMirror.fromTextArea(document.getElementById("code-editor-2"), {
+            lineNumbers: true, // Hiển thị số dòng
+            mode: "text/x-plsql", // Ngôn ngữ lập trình (vd: Java, C#, Python)
+            theme: "default", // Chủ đề giao diện (vd: "default", "darcula", "3024-day", "3024-night",...)
+            indentUnit: 4, // Kích thước khoảng cách thụt vào (vd: 4 hoặc 2)
+        });
+    }
+
+    activateCodeMirror();
+</script>
+
+</body>
+
+</html>

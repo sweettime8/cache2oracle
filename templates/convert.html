@@ -1,0 +1,74 @@
+{% extends "layout.html" %}
+{% block body %}
+<style>
+    /* CSS cho button */
+    .center-align-button {
+        margin-top: 70px !important;
+        display: flex;
+        justify-content: center;
+        margin-top: 10px; /* Khoảng cách giữa các paragraphs và button bên dưới */
+    }
+
+    .spinner-border {
+        display: none;
+    }
+
+
+
+</style>
+<!-- [ breadcrumb ] start -->
+<div class="page-header">
+    <div class="page-block">
+        <div class="row align-items-center">
+            <div class="col-md-12">
+                <div class="page-header-title">
+                    <h5 class="m-b-10">Check Vietnamese</h5>
+                </div>
+                <ul class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/"><i class="feather icon-home"></i></a></li>
+                    <li class="breadcrumb-item"><a href="#!">Convert Cache to Oracle</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="pcoded-content">
+
+    <!-- [ Main Content ] start -->
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+
+                        <div class="col-md-12 col-sm-12">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <input type="file" id="folderfilepond">
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="button" class="btn  btn-success" onclick="startConvert()">
+                                                <span id="spinner1" class="spinner-border spinner-border-sm"
+                                                      role="status"></span>
+                                        Convert
+                                    </button>
+
+                                </div>
+
+
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- [ tabs ] end -->
+
+    </div>
+
+    <!-- [ Main Content ] end -->
+</div>
+
+{% endblock %}

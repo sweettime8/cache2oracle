@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% block body %}
+
+    <!-- [ breadcrumb ] start -->
+<div class="page-header">
+    <div class="page-block">
+        <div class="row align-items-center">
+            <div class="col-md-12">
+                <div class="page-header-title">
+                    <h5 class="m-b-10">Cache To Oracle</h5>
+                </div>
+                <ul class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/"><i class="feather icon-home"></i></a></li>
+                    <li class="breadcrumb-item"><a href="#!">Convert Source Code</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+    <form action="{{url_for('actions.convert_editor')}}" method="POST">
+        <div class="row custom-row">
+
+            <div class="col-md-6">
+                <label class="custom-row" for="code-language">From Cache</label>
+
+<textarea id="code-editor-1" name="code-editor-1"  class="form-control code-textarea" rows="40">{{from_code}}
+</textarea>
+            </div>
+
+            <div class="col-md-6">
+                <label class="custom-row" for="code-language">To Oracle</label>
+            <textarea id="code-editor-2" name="code-editor-2" class="form-control code-textarea" rows="40">{{to_code}}</textarea>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12 btn-container" style="margin-top: 5px">
+                <button class="btn btn-primary" onclick="convertCode()">Convert</button>
+            </div>
+        </div>
+
+    </form>
+
+{% endblock %}
