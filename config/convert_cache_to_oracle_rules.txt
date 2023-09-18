@@ -3,6 +3,7 @@ Do\s+([^\s(]+)(?=\s|$)|||\1()
 (Do\s+(\w+))(\s+|\([^)]*\))|||\2\3
 Do\s*\{([\s\S]*?)\}\s*While\s*\(([^)]+)\)|||LOOP\1IF \2 THEN\n  GOTO \2 \nENDIF;\n  <<\2>>\n  IF NOT \2 THEN\n\n  EXIT;\n  ENDIF;\nEND LOOP;
 If\s*\(([^)]+)\)\s*\{\s*([\s\S]*?)\}\s*ElseIf\s*\(([^)]+)\)\s*\{\s*([\s\S]*?)\}\s*Else\s*\{\s*([\s\S]*?)\}|||IF \1 THEN \n \2 \nELSIF \3 THEN \n \4 \nELSE \n \5 \nEND IF;
+(If|if|IF)\s*([^{]+)\s*\{([^{]+)\}\s*(else|ELSE)\{([^}]+)\}|||IF \2 THEN\n\t   \3\n\tELSE\n\t   \5\n\tEND IF;
 If\s*\(([^)]+)\)\s*\{\s*([\s\S]*?)\}\s*ElseIf\s*\(([^)]+)\)\s*\{\s*([\s\S]*?)\}|||IF (\1) THEN \n \2 \nELSIF (\3) THEN \n \4 \nEND IF;
 If\s*\(?([^)]+)\)\)?\s*([^{]+)\{\s*([\s\S]*?)\}\s*(Else|else)\s*\{\s*([\s\S]*?)\}|||\tIF \1 = \2 THEN \n\t  \3 \n\tELSE \n\t   \5 \n   END IF;
 If\s*\(?([^)]+)\)?\s*\{\s*([\s\S]*?)\}\s*Else\s*\{\s*([\s\S]*?)\}|||IF \1 THEN \n \2 \nELSE \n \3 \nEND IF;
@@ -21,6 +22,7 @@ Kill \^([^\s(]+)(?=\s|$)|||TABLE_NAME_REPO.DELETE()
 \^([^\s(]+)\(([^)]+)|||TABLE_NAME_REPO.FIND_BY_KEY(\2
 TSTART\s*([\s\S]*?)\s*TCOMMIT|||\1\nCOMMIT;
 TCOMMIT|||COMMIT;
+(For|for|FOR)\s*(\w+)\s*\=(\w+)\:(\w+)\:(\w+)\s*\{([\s\S]*?)\}|||FOR \2 IN \3 .. \5 LOOP \n\t   \6\n\tEND LOOP;
 For \{([\s\S]*?)\}|||LOOP\n  \1 \nEND LOOP;
 Try \{([\s\S]*?)\} Catch\s+Exception \{([\s\S]*?)\}|||BEGIN\n  \1 \nEXCEPTION\n  WHEN OTHERS THEN\n   \2 \nEND;
 \$\$([A-Za-z0-9]+)\^([A-Za-z0-9]+)\(([^)]+)\)|||\2_MAC.\1(\3);
@@ -43,11 +45,12 @@ Quit\s+\-(\w+)|||RETURN -1;
 (Set|SET|set) \$BIT\(([^)]+)\)\s*=\s*(.+)|||COMMON.C_BIT(\2, \3);
 (Set|SET|set)\s+\$Extract\(([^)]+)\)\s*=\s*(.+)|||COMMON.C_EXTRACT(\2, \3);
 (Set|SET|set)\s+\$PIECE\(([^)]+)\)\s*=\s*(.+)|||COMMON.C_PIECE(\2, \3);
-'=\s+|||!=
 '=\s*""|||IS NOT NULL
+'=\s+|||!=
 ([^:])=\s*""|||\1IS NULL
 (\|\|)||| OR
 (\&\&)||| AND
+\"([^"]+)\"|||'\1'
 \$ListGet\(([^)]+)\)|||COMMON.C_LISTGET(\1)
 \$LG\(([^)]+)\)|||COMMON.C_LISTGET(\1)
 \$ISVALIDNUM\(([^)]+)\)|||COMMON.C_ISVALIDNUM(\1)
@@ -63,7 +66,7 @@ Quit\s+\-(\w+)|||RETURN -1;
 \$REVERSE\(([^)]+)\)|||COMMON.C_REVERSE(\1)
 \$(TRANSLATE|Translate|translate)\(([^)]+)\)|||COMMON.C_TRANSLATE(\2)
 \$ZABS\(([^)]+)\)|||COMMON.C_ZABS(\1)
-\$Get\(([^)]+)\)|||COMMON.C_Get(\1)
+\$Get\(([^)]+)\)|||COMMON.C_GET(\1)
 \$LENGTH\(([^)]+)\)|||COMMON.C_LENGTH(\1)
 \$ZDATETIME\(([^)]+)\)|||COMMON.C_DATETIME(\1)
 \$ZDT\(([^)]+)\)|||COMMON.C_DATETIME(\1)
@@ -94,6 +97,3 @@ Quit\s+\-(\w+)|||RETURN -1;
 \$ZTIME\(([^)]+)\)|||COMMON.C_TIME(\1)
 \$TLEVEL|||COMMON.C_TLEVEL
 Write "([^"]*)", (\w+), !|||DBMS_OUTPUT.PUT_LINE('\1' || NVL(\2) || CHR(10));
-(\#\;)([^\n]+)|||-- \2
-(\/\/)([^\n]+)|||-- \2
-(\s+)(\;)([^\n]+)|||-- \3
