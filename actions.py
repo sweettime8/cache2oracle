@@ -101,6 +101,10 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                 for i in range(len(methods)):
                     method_name = methods[i].getAttribute("name")
 
+                    # Không migrate Execute,Fetch,Close
+                    if ("Execute" in method_name) or ("Fetch" in method_name) or ("Close" in method_name):
+                        continue
+
                     # Tìm phần tử <Description> trong phần tử <Method> hiện tại
                     description_method = methods[i].getElementsByTagName("Description").item(0)
                     if description_method:
@@ -115,6 +119,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
 
                     else:
                         description_method_value = ""
+                        formatted_description = ""
 
                     # Tìm phần tử <FormalSpec> trong phần tử <Method> hiện tại
                     formal_spec = methods[i].getElementsByTagName("FormalSpec").item(0)
@@ -255,7 +260,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                     package_content += f"""
     {formatted_description_query}
     {declare_record_query}
-    FUNCTION {query_name}({formal_spec_query_value}) RETURN SYS_REFCURSOR; ;    
+    FUNCTION {query_name}({formal_spec_query_value}) RETURN SYS_REFCURSOR;
                         """
 
                     package_body += f"""
@@ -313,14 +318,11 @@ def convert_formal_spec(input_str):
                 var_type_value += " DEFAULT " + var_type.split('=')[1]
             else:
                 var_type_value = convert_data_type_file(var_type)
-            # Xác định kiểu của tham số đầu ra
-            var_in_out = "IN"
-            if '&' in var_name:
-                var_name = var_name.replace('&', '').strip()
-                var_in_out = "OUT"
+                if var_type_value == "VARCHAR2":
+                    var_type_value = "VARCHAR2(4000)"
 
             # Tạo định dạng đầu ra cho tham số
-            output_var = f"{var_name} {var_in_out} {var_type_value}"
+            output_var = f"{var_name} {var_type_value}"
             output_elements.append(output_var)
 
     # Kết hợp các phần tử lại với nhau và ngăn cách bằng dấu phẩy
@@ -391,13 +393,22 @@ def convert_editor():
             conversion_rules_file_path = "./config/convert_cache_to_oracle_rules.txt"
             conversion_rules = read_conversion_rules_from_file(conversion_rules_file_path)
 
+            # check $$[1] : $$MethodName^RoutineName(param1, param2,...) ex : $$GetMotherInfoLog^Com.MotherUpdateLog(SyohinSeq, piDate, CheckCd)
+            pattern_dola_dola_1 = r'\$\$(\w+)\^(\w+)\.(\w+)\((.*?)\)'
+            # Tìm các kết hợp phù hợp trong chuỗi và thực hiện chuyển đổi
+            to_code_temp = convert_from_pattern(pattern_dola_dola_1, from_code)
+
+            #check $$ [2] $$MethodName(param1, param2,...)
+            # input -> $$MethodName(param1, param2,.param3,.param4) -> $$MethodName(param1, param2, param3, param4)
+            pattern_dola_dola_2 = r'\$\$([^\s(]+)\(([^)]+)'
+            to_code_temp = convert_from_pattern_dola_dola_2(pattern_dola_dola_2, to_code_temp)
+
             # check Do[3] : Do MethodName^RoutineName(param, ...) -> ROUTINE_NAME_MAC.MethodName(param1, param2,...)
             pattern_do_3 = r'Do (\w+)\^(\w+)\.(\w+)\((.*?)\)'
             # Tìm các kết hợp phù hợp trong chuỗi và thực hiện chuyển đổi
-            to_code_temp = from_code
             matchs_do_3 = re.findall(pattern_do_3, from_code.strip())
             for match_do_3 in matchs_do_3:
-                m_do3_function = match_do_3[0].upper()
+                m_do3_function = match_do_3[0]
                 m_do3_package = match_do_3[1].upper()
                 m_do3_routine = match_do_3[2]
                 m_do3_param = match_do_3[3]
@@ -405,7 +416,9 @@ def convert_editor():
                     3] + ")"
                 m_do3_routine = ''.join(['_' + c if c.isupper() else c for c in m_do3_routine]).lstrip('_')
                 m_do3_routine = m_do3_routine.upper()
-                output_str_do_3 = m_do3_package + "_" + m_do3_routine + "_MAC_" + m_do3_function + "(" + m_do3_param + ")"
+                #kiểm tra xem param có . không, nếu có remove đi
+                m_do3_param = re.sub(r'\.', '', m_do3_param)
+                output_str_do_3 = m_do3_package + "_" + m_do3_routine + "_MAC." + m_do3_function + "(" + m_do3_param + ")"
 
                 to_code_temp = to_code_temp.replace(input_str_do3, output_str_do_3)
 
@@ -440,6 +453,43 @@ def convert_editor():
         logging.error(" [convert_editor] error : ", e)
         return redirect(url_for('actions.convert_code'))
 
+
+#check $$[1] : $$MethodName^RoutineName(param1, param2,...)
+def convert_from_pattern(pattern, from_code):
+    print("###[convert_from_pattern]###")
+    # Tìm các kết hợp phù hợp trong chuỗi và thực hiện chuyển đổi
+    to_code_temp = from_code
+    matchs = re.findall(pattern, from_code.strip())
+    for match in matchs:
+        m_function = match[0]
+        m_package = match[1].upper()
+        m_routine = match[2]
+        m_param = match[3]
+        input_str = match[0] + "^" + match[1] + "." + match[2] + "(" + match[3] + ")"
+        m_routine = ''.join(['_' + c if c.isupper() else c for c in m_routine]).lstrip('_')
+        m_routine = m_routine.upper()
+        # kiểm tra xem param có . không, nếu có remove đi
+        m_param = re.sub(r'\.', '', m_param)
+        output_str = m_package + "_" + m_routine + "_MAC." + m_function + "(" + m_param + ")"
+
+        to_code_temp = to_code_temp.replace(input_str, output_str)
+    return to_code_temp
+
+#check $$[2] : $$MethodName(param1, param2,.param3, .param4)
+def convert_from_pattern_dola_dola_2(pattern, from_code):
+    print("###[convert_from_pattern]###")
+    # Tìm các kết hợp phù hợp trong chuỗi và thực hiện chuyển đổi
+    to_code_temp = from_code
+    matchs = re.findall(pattern, from_code.strip())
+    for match in matchs:
+        m_function = match[0]
+        m_param = match[1]
+        input_str = "$$" + match[0] + "(" + match[1] + ")"
+        # kiểm tra xem param có . không, nếu có remove đi
+        m_param = re.sub(r'\.', '', m_param)
+        output_str = m_function + "(" + m_param + ")"
+        to_code_temp = to_code_temp.replace(input_str, output_str)
+    return to_code_temp
 
 def read_conversion_rules_from_file(file_path):
     with open(file_path, 'r') as file:
@@ -501,13 +551,19 @@ def start_convert_mac():
     /*******************************************************
      *  DECLARE INCLUDE LIST: Where constants should be
      *******************************************************/                   
-    INCLUDE_LIST STRING_ARRAY := STRING_ARRAY("""
+     INCLUDE_LIST STRING_ARRAY := STRING_ARRAY("""
                     pattern_storage = '\.storage'
                     for include in includes:
                         if not re.search(pattern_storage, include, re.IGNORECASE):
                             include_list += f"""'{include}',"""
                     # Loại bỏ dấu "," cuối cùng và thêm dấu ");"
                     include_list = include_list[:-1] + ');'
+                else:
+                    include_list += """
+    /*******************************************************
+     *  DECLARE INCLUDE LIST: Where constants should be
+     *******************************************************/                   
+     INCLUDE_LIST STRING_ARRAY := STRING_ARRAY();"""
 
                 pattern_constant = r'#Define\s+(\w+)\s+"?([^"\n]+)"?\s*'
                 # Sử dụng re.findall để tìm tất cả các #Define trong đoạn văn bản
@@ -551,8 +607,17 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                 for method in methods:
                     method_name = method[0]
                     method_params = method[1]
-                    method_access = method[2]
-                    method_content = "FUNCTION " + method_name + "(" + method_params + ") " + method_access
+                    #method_access = method[2]
+                    method_access = "RETURN DATATYPE"
+                    # Tách các phần từ trong chuỗi đầu vào
+                    input_list = method_params.split(', ')
+                    output_list = []
+                    # Lặp qua danh sách các phần tử và thêm phần tử chuyển đổi vào danh sách mới
+                    for item in input_list:
+                        output_list.append(f'{item} IN VARCHAR2')
+                    output_params = ', '.join(output_list)
+                    #mrd
+                    method_content = "FUNCTION " + method_name + "(" + output_params + ") " + method_access
                     package_content += f"""
      {method_content}       
                                     """

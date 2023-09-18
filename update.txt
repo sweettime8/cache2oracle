@@ -5,7 +5,7 @@
 4.java doc cho file cls
 5. Do[1], Do[2], Do[3]
 
--------------------- update version 15/9/2023 ---------------------------
+-------------------- update version 17/9/2023 ---------------------------
 1.  Query [1]
 2.  Kill [1] -> TABLE_NAME_REPO.DELETE(PARAM1,PARAM2,...);
 3.  Kill [2] -> TABLE_NAME_REPO.DELETE(PARAM1,PARAM2,...);
@@ -17,3 +17,17 @@
 9.  Write [1]
 10. comment
 11. @[1], @[2], ^[1] -> TABLE_NAME_REPO.FIND_BY_KEY(PARAM1,PARAM2,...);
+
+-------------------- update version 18/9/2023 ---------------------------
+1.fix cls khong gen được do thiếu description
+2. Fix feedback 1, 2, 3, 4, 5, 6
+3. feedback 7,8 : chưa có solution move sang lần fix tiếp theo
+   feedback 9   :  move sang lần fix tiếp theo
+4. Fix feedback 10, 11, 12, 13, 14, 15
+
+5.fix 16  $$FunctionName^RoutineName(param)  : Done
+          Do FunctionName^RoutineName(param) : Done
+          $$FunctionName(param)              : Done
+          Do FunctionName(param)             : Done
+    Nếu param được truyền vào có dấu "." phía trước. Ví dụ .PoList -> Bỏ dấu "." đi
+6. Fix feedback 17, 18, 19, 20, 21, 22, 23
