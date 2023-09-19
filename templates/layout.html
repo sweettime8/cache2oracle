@@ -24,10 +24,14 @@
     <!-- CSS của CodeMirror -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/codemirror.min.css') }}">
     <!--<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/codemirror.min.css">-->
-
+    <!--<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.63.0/theme/dracula.min.css">-->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/codemirrordracula.min.css') }}">
     <!-- JavaScript của CodeMirror -->
     <script src="{{ url_for('static', filename='js/codemirror.min.js') }}"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.63.0/mode/sql/sql.min.js"></script>
+    <script src="{{ url_for('static', filename='js/codemirror.sql.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/codemirror.plsql.min.js') }}"></script>
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/2.36.0/plsql.min.js"></script> -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.63.0/mode/sql/sql.min.js"></script> -->
     <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/codemirror.min.js"></script>-->
     <!-- Thêm ngôn ngữ hỗ trợ (vd: Java, C#, Python) -->
 {#    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/mode/clike/clike.min.js"></script>#}
@@ -260,14 +264,14 @@
         var editor = CodeMirror.fromTextArea(document.getElementById("code-editor-1"), {
             lineNumbers: true, // Hiển thị số dòng
             mode: "text/x-sql", // Ngôn ngữ lập trình (vd: Java, C#, Python)
-            theme: "default", // Chủ đề giao diện (vd: "default", "darcula", "3024-day", "3024-night",...)
+            theme: "dracula", // Chủ đề giao diện (vd: "default", "darcula", "3024-day", "3024-night",...)
             indentUnit: 4, // Kích thước khoảng cách thụt vào (vd: 4 hoặc 2)
         });
 
         var editor2 = CodeMirror.fromTextArea(document.getElementById("code-editor-2"), {
             lineNumbers: true, // Hiển thị số dòng
-            mode: "text/x-sql", // Ngôn ngữ lập trình (vd: Java, C#, Python)
-            theme: "default", // Chủ đề giao diện (vd: "default", "darcula", "3024-day", "3024-night",...)
+            mode: "text/x-plsql", // Ngôn ngữ lập trình (vd: Java, C#, Python)
+            theme: "dracula", // Chủ đề giao diện (vd: "default", "darcula", "3024-day", "3024-night",...)
             indentUnit: 4, // Kích thước khoảng cách thụt vào (vd: 4 hoặc 2)
         });
     }

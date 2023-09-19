@@ -31,3 +31,9 @@
           Do FunctionName(param)             : Done
     Nếu param được truyền vào có dấu "." phía trước. Ví dụ .PoList -> Bỏ dấu "." đi
 6. Fix feedback 17, 18, 19, 20, 21, 22, 23
+
+-------------------- update version 19/9/2023 ---------------------------
+1. Fix po OUT, pi IN trong file MAC
+2. Fix "" -> ''
+3. Remove IN trong TYPE record
+4. FIX multiple if else lồng nhau

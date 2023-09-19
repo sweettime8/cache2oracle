@@ -393,15 +393,18 @@ def convert_editor():
             conversion_rules_file_path = "./config/convert_cache_to_oracle_rules.txt"
             conversion_rules = read_conversion_rules_from_file(conversion_rules_file_path)
 
+            # convert if else :
+            to_code_temp = process_code(from_code)
+
             # Convert comment #; /// ;
-            to_code_temp = convert_comment_pattern(from_code)
+            to_code_temp = convert_comment_pattern(to_code_temp)
 
             # check $$[1] : $$MethodName^RoutineName(param1, param2,...) ex : $$GetMotherInfoLog^Com.MotherUpdateLog(SyohinSeq, piDate, CheckCd)
             pattern_dola_dola_1 = r'\$\$(\w+)\^(\w+)\.(\w+)\((.*?)\)'
             # Tìm các kết hợp phù hợp trong chuỗi và thực hiện chuyển đổi
             to_code_temp = convert_from_pattern(pattern_dola_dola_1, to_code_temp)
 
-            #check $$ [2] $$MethodName(param1, param2,...)
+            # check $$ [2] $$MethodName(param1, param2,...)
             # input -> $$MethodName(param1, param2,.param3,.param4) -> $$MethodName(param1, param2, param3, param4)
             pattern_dola_dola_2 = r'\$\$([^\s(]+)\(([^)]+)'
             to_code_temp = convert_from_pattern_dola_dola_2(pattern_dola_dola_2, to_code_temp)
@@ -419,7 +422,7 @@ def convert_editor():
                     3] + ")"
                 m_do3_routine = ''.join(['_' + c if c.isupper() else c for c in m_do3_routine]).lstrip('_')
                 m_do3_routine = m_do3_routine.upper()
-                #kiểm tra xem param có . không, nếu có remove đi
+                # kiểm tra xem param có . không, nếu có remove đi
                 m_do3_param = re.sub(r'\.', '', m_do3_param)
                 output_str_do_3 = m_do3_package + "_" + m_do3_routine + "_MAC." + m_do3_function + "(" + m_do3_param + ")"
 
@@ -445,9 +448,7 @@ def convert_editor():
                 # Replace đoạn pattern bằng chuỗi output_str
                 to_code_temp = to_code_temp.replace(input_str, output_str)
 
-
             to_code = convert_cache_to_oracle(to_code_temp, conversion_rules)
-
 
             return render_template('convert-code.html', from_code=from_code, to_code=to_code)
 
@@ -457,7 +458,7 @@ def convert_editor():
         return redirect(url_for('actions.convert_code'))
 
 
-#convert comment
+# convert comment
 def convert_comment_pattern(from_code):
     pattern1 = r'(\#\;)([^\n]+)'
     pattern2 = r'(\/\/)([^\n]+)'
@@ -484,7 +485,8 @@ def convert_comment_pattern(from_code):
 
     return to_code_temp
 
-#check $$[1] : $$MethodName^RoutineName(param1, param2,...)
+
+# check $$[1] : $$MethodName^RoutineName(param1, param2,...)
 def convert_from_pattern(pattern, from_code):
     print("###[convert_from_pattern]###")
     # Tìm các kết hợp phù hợp trong chuỗi và thực hiện chuyển đổi
@@ -505,7 +507,8 @@ def convert_from_pattern(pattern, from_code):
         to_code_temp = to_code_temp.replace(input_str, output_str)
     return to_code_temp
 
-#check $$[2] : $$MethodName(param1, param2,.param3, .param4)
+
+# check $$[2] : $$MethodName(param1, param2,.param3, .param4)
 def convert_from_pattern_dola_dola_2(pattern, from_code):
     print("###[convert_from_pattern]###")
     # Tìm các kết hợp phù hợp trong chuỗi và thực hiện chuyển đổi
@@ -520,6 +523,7 @@ def convert_from_pattern_dola_dola_2(pattern, from_code):
         output_str = m_function + "(" + m_param + ")"
         to_code_temp = to_code_temp.replace(input_str, output_str)
     return to_code_temp
+
 
 def read_conversion_rules_from_file(file_path):
     with open(file_path, 'r') as file:
@@ -590,7 +594,7 @@ def start_convert_mac():
                     if include_list.endswith(", "):
                         include_list = include_list[:-1] + ');'
                     else:
-                        include_list +=");"
+                        include_list += ");"
                 else:
                     include_list += """
     /*******************************************************
@@ -640,16 +644,19 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                 for method in methods:
                     method_name = method[0]
                     method_params = method[1]
-                    #method_access = method[2]
-                    method_access = "RETURN DATATYPE"
+                    # method_access = method[2]
+                    method_access = "RETURN VARCHAR2"
                     # Tách các phần từ trong chuỗi đầu vào
                     input_list = method_params.split(', ')
                     output_list = []
                     # Lặp qua danh sách các phần tử và thêm phần tử chuyển đổi vào danh sách mới
                     for item in input_list:
-                        output_list.append(f'{item} IN VARCHAR2')
+                        if "po" in item:
+                            output_list.append(f'{item} OUT VARCHAR2')
+                        else:
+                            output_list.append(f'{item} IN VARCHAR2')
                     output_params = ', '.join(output_list)
-                    #mrd
+                    # mrd
                     method_content = "FUNCTION " + method_name + "(" + output_params + ") " + method_access
                     package_content += f"""
      {method_content}       
@@ -681,79 +688,68 @@ END {file_convert_name};
         logging.error(" [start_convert_cls] error : ", e)
         return jsonify({'status': 'success', 'message': 'Check File error!', 'data': e})
 
-###################################################################################################################
-source_code = [
-    "If SeqNo = \"\" {",
-    "    Set SeqNo = 1",
-    "} Else {",
-    "    Set SeqNo = SeqNo + 1",
-    "} Else {",
-    "    If SeqNo = \"\" {",
-    "        Set SeqNo = 1",
-    "    } Else {",
-    "        Set SeqNo = SeqNo + 1",
-    "    }",
-    "    Set SeqNo = SeqNo + 1",
-    "}"
-]
 
+#########################################process if else##################################################
 
-def convert_to_new_language(code_lines, indent=0):
-    new_code = []
-    in_if_block = False
-
-    for line in code_lines:
-        if "If " in line:
-            in_if_block = True
-            condition = line.split("If ")[1].replace(" =", " IS NULL")
-            new_code.append(" " * indent + f"IF {condition} THEN")
-        elif "Else" in line:
-            in_if_block = False
-            new_code.append(" " * indent + "ELSE")
-        elif in_if_block:
-            if "{" in line:
-                new_code.append(" " * (indent + 4) + line.replace("{", ""))
-            elif "}" in line:
-                new_code.append(" " * indent + line)
-            else:
-                new_code.append(" " * (indent + 4) + line)
-        else:
-            new_code.append(" " * indent + line)
-
-    return new_code
-
-
-def process_code(code_lines):
+def process_code(source_code):
     processed_code = []
     stack = []
+    code_lines = source_code.split('\n')
+    pattern = r'(If|if|IF)\s*([^\n]+)\}'
+    pattern2 = r'(\/\/)([^\n]+)'
+    pattern3 = r'(\;)([^\n]+)'
+    ## bỏ qua không migrate comment
 
     for line in code_lines:
-        if "If " in line:
-            stack.append(True)
-            condition = line.split("If ")[1].replace(" =", " IS NULL")
-            processed_code.append(" " * len(stack) * 4 + f"IF {condition} THEN")
-        elif "Else" in line:
-            if stack:
-                stack.pop()
-            stack.append(False)
-            processed_code.append("ELSE")
-        else:
-            while stack and not stack[-1]:
-                processed_code.append(" " * len(stack) * 4 + "END IF;")
-                if stack:
-                    stack.pop()
-
+        if "#;" in line:
+            continue
+        if re.findall(pattern, line.strip()):
             processed_code.append(line)
+            continue
+        if re.findall(pattern2, line.strip()):
+            processed_code.append(line)
+            continue
+        if re.findall(pattern3, line.strip()):
+            processed_code.append(line)
+            continue
+        if ("If ".upper() in line.upper()) and ("ElseIf".upper() not in line.upper()) :
+            if "{" in line:
+                condition = line.split("If ")[1].split("{")[0]
+                stack.append(True)  # Bắt đầu một cấp độ mới
+                processed_code.append(" " * (len(stack) - 1) * 4 + f"IF {condition} THEN")
+            else:
+                processed_code.append(" " * len(stack) * 4 + f"IF {condition} THEN")
+        elif ("Else".upper() in line.upper()) and ("ElseIf".upper() not in line.upper()):
+            if "}" in line:
+                if stack:
+                    stack.pop()  # Kết thúc một cấp độ
+                processed_code.append(" " * len(stack) * 4 + "ELSE")
+                stack.append(True)  # Bắt đầu một cấp độ mới
+            else:
+                processed_code[-1] += " ELSE"
+        elif "ElseIf".upper() in line.upper():
+            if "}" in line:
+                if stack:
+                    stack.pop()  # Kết thúc một cấp độ
+                processed_code.append(" " * len(stack) * 4 + "ELSEIF")
+                stack.append(True)  # Bắt đầu một cấp độ mới
+            else:
+                processed_code[-1] += " ELSEIF"
+        elif "}" in line:
+            line = line.replace("}", "")
+            if stack:
+                stack.pop()  # Kết thúc một cấp độ
+            processed_code[-1] += f"\n{line}"  # Đưa dấu "}" xuống dòng mới
+            processed_code.append(" " * len(stack) * 4 + "END IF;")  # Thêm "END IF"
+        else:
+            processed_code.append(" " * len(stack) * 4 + line)
 
     while stack:
-        processed_code.append(" " * len(stack) * 4 + "END IF;")
-        if stack:
-            stack.pop()
+        stack.pop()
+        processed_code.append(" " * len(stack) * 4 + "END IF;")  # Thêm "END IF"
 
-    return processed_code
+    result = ""
+    for line in processed_code:
+        result += line +"\n"
+    return result
 
-processed_code = process_code(source_code)
-
-# In mã chuyển đổi
-for line in processed_code:
-    print(line)
