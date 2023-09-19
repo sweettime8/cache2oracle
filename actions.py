@@ -197,10 +197,10 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                             # là procedure
                             package_content += f"""
     {formatted_description}                        
-    PROCEDURE {method_name}({formal_spec_value}) RETURN {return_type_value};        
+    PROCEDURE {method_name}({formal_spec_value}) ;        
                                                     """
                             package_body += f"""
-    PROCEDURE {method_name}({formal_spec_value}) RETURN {return_type_value} IS  
+    PROCEDURE {method_name}({formal_spec_value}) IS  
         {include_list}\n
         {output_constants}
         /* todo */
@@ -241,12 +241,12 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                     parameter_query = query_cls[i].getElementsByTagName("Parameter").item(0)
                     if parameter_query:
                         # Lấy nội dung của FormalSpec
-                        parameter_query_query_value = convert_formal_spec(parameter_query.getAttribute("value"))
+                        parameter_query_query_value = convert_query_parameter(parameter_query.getAttribute("value"))
                         # Tách chuỗi thành danh sách các tham số
-                        parameter_query_query_value = parameter_query_query_value.split(", ")
+                        # parameter_query_query_value = parameter_query_query_value.split(", ")
 
                         # Tạo chuỗi mới với dấu xuống dòng sau mỗi tham số
-                        parameter_query_query_value = ",\n         ".join(parameter_query_query_value)
+                        # parameter_query_query_value = ",\n         ".join(parameter_query_query_value)
                     else:
                         parameter_query_query_value = ""
 
@@ -284,6 +284,50 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
         print("error : ", e)
         logging.error(" [start_convert_cls] error : ", e)
         return jsonify({'status': 'success', 'message': 'Check File error!', 'data': e})
+
+
+def convert_query_parameter(input_str):
+    elements = input_str.split(',')
+    output_str1 = ""
+    # Duyệt qua từng phần tử và chuyển đổi
+    output_elements = []
+    for element in elements:
+        # Tách tên biến và kiểu dữ liệu
+        parts = element.split(':')
+        if len(parts) == 2:
+            var_name, var_type = parts
+            if '=' in var_type:
+                var_type_value = convert_data_type_file(var_type.split('=')[0])
+                var_type_value += " DEFAULT " + var_type.split('=')[1]
+            else:
+                var_type_value = convert_data_type_file(var_type)
+                if var_type_value == "VARCHAR2":
+                    var_type_value = "VARCHAR2(4000)"
+
+            # Tạo định dạng đầu ra cho tham số
+            output_var = f"{var_name} {var_type_value}"
+            output_elements.append(output_var)
+
+        elif len(parts) == 3:
+            var_name, var_type, var_comment = parts
+            if '=' in var_type:
+                var_type_value = convert_data_type_file(var_type.split('=')[0])
+                var_type_value += " DEFAULT " + var_type.split('=')[1]
+            else:
+                var_type_value = convert_data_type_file(var_type)
+                if var_type_value == "VARCHAR2":
+                    var_type_value = "VARCHAR2(4000)"
+
+            # Tạo định dạng đầu ra cho tham số
+            if element == elements[-1]:
+                output_var = f"{var_name} {var_type_value} --{var_comment}"
+            else:
+                output_var = f"{var_name} {var_type_value}, --{var_comment}"
+            output_elements.append(output_var)
+
+    # Kết hợp các phần tử lại với nhau và ngăn cách bằng dấu phẩy
+    output_str = '\n         '.join(output_elements)
+    return output_str
 
 
 def convert_formal_spec(input_str):
@@ -536,7 +580,7 @@ def convert_cache_to_oracle(cache_code, conversion_rules):
 
     for rule in conversion_rules:
         cache_pattern, oracle_replace = rule
-        oracle_code = re.sub(cache_pattern.strip(), oracle_replace.strip(), oracle_code)
+        oracle_code = re.sub(cache_pattern.strip(), oracle_replace.strip(), oracle_code, flags=re.IGNORECASE)
     # Sử dụng regex để loại bỏ xuống dòng
     oracle_code = re.sub(r'[\r]', '', oracle_code)
     return oracle_code
@@ -591,7 +635,7 @@ def start_convert_mac():
                         if not re.search(pattern_storage, include, re.IGNORECASE):
                             include_list += f"""'{include}',"""
                     # Loại bỏ dấu "," cuối cùng và thêm dấu ");"
-                    if include_list.endswith(", "):
+                    if include_list.endswith(","):
                         include_list = include_list[:-1] + ');'
                     else:
                         include_list += ");"
@@ -645,7 +689,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                     method_name = method[0]
                     method_params = method[1]
                     # method_access = method[2]
-                    method_access = "RETURN VARCHAR2"
+                    method_access = "RETURN VARCHAR2 "
                     # Tách các phần từ trong chuỗi đầu vào
                     input_list = method_params.split(', ')
                     output_list = []
@@ -659,10 +703,10 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                     # mrd
                     method_content = "FUNCTION " + method_name + "(" + output_params + ") " + method_access
                     package_content += f"""
-     {method_content}       
+     {method_content};       
                                     """
                     package_body += f"""
-     {method_content}   
+     {method_content}IS   
      /* todo */
      BEGIN
      /* todo */   
@@ -701,6 +745,8 @@ def process_code(source_code):
     ## bỏ qua không migrate comment
 
     for line in code_lines:
+        if "\r" == line:
+            continue
         if "#;" in line:
             continue
         if re.findall(pattern, line.strip()):
@@ -712,9 +758,9 @@ def process_code(source_code):
         if re.findall(pattern3, line.strip()):
             processed_code.append(line)
             continue
-        if ("If ".upper() in line.upper()) and ("ElseIf".upper() not in line.upper()) :
+        if ("If ".upper() in line.upper()) and ("ElseIf".upper() not in line.upper()):
             if "{" in line:
-                condition = line.split("If ")[1].split("{")[0]
+                condition = (line.upper()).split("IF ")[1].split("{")[0]
                 stack.append(True)  # Bắt đầu một cấp độ mới
                 processed_code.append(" " * (len(stack) - 1) * 4 + f"IF {condition} THEN")
             else:
@@ -750,6 +796,5 @@ def process_code(source_code):
 
     result = ""
     for line in processed_code:
-        result += line +"\n"
+        result += line + "\n"
     return result
-

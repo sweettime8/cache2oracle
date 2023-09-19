@@ -30,8 +30,8 @@ Try \{([\s\S]*?)\} Catch\s+Exception \{([\s\S]*?)\}|||BEGIN\n  \1 \nEXCEPTION\n 
 \$\$([^\s(]+)\(([^)]+)|||\1(\2
 \$\$\$OK|||1
 Quit:\(([^)]+)\)|||IF (\1) THEN\n\n    EXIT;\n\nEND IF;\n
-Quit\s+(\w+)|||RETURN \1;
-Quit\s+\-(\w+)|||RETURN -1;
+Quit\s+(\w+)|||RETURN \1;\n
+Quit\s+\-(\w+)|||RETURN -1;\n
 (\$HOROLOG)|||COMMON.C_HOROLOG
 (\$C)\(([^)]+)\)|||COMMON.C_CHAR(\2)
 (\$Char)\(([^)]+)\)|||COMMON.C_CHAR(\2)
@@ -50,7 +50,8 @@ Quit\s+\-(\w+)|||RETURN -1;
 ([^:])=\s*""|||\1IS NULL
 (\|\|)||| OR
 (\&\&)||| AND
-\"([^"]+)\"|||'\1'
+=\s*\"([^"]+)\"|||'\1'
+\"\"|||''
 \$ListGet\(([^)]+)\)|||COMMON.C_LISTGET(\1)
 \$LG\(([^)]+)\)|||COMMON.C_LISTGET(\1)
 \$ISVALIDNUM\(([^)]+)\)|||COMMON.C_ISVALIDNUM(\1)
@@ -68,8 +69,8 @@ Quit\s+\-(\w+)|||RETURN -1;
 \$ZABS\(([^)]+)\)|||COMMON.C_ZABS(\1)
 \$Get\(([^)]+)\)|||COMMON.C_GET(\1)
 \$LENGTH\(([^)]+)\)|||COMMON.C_LENGTH(\1)
-\$ZDATETIME\(([^)]+)\)|||COMMON.C_DATETIME(\1)
-\$ZDT\(([^)]+)\)|||COMMON.C_DATETIME(\1)
+\$ZDATETIME\(([^)]+)\)|||COMMON.C_ZDATETIME(\1)
+\$ZDT\(([^)]+)\)|||COMMON.C_ZDATETIME(\1)
 \$ZDATETIMEH\(([^)]+)\)|||COMMON.C_DATETIMEH(\1)
 \$ZCONVERT\(([^)]+)\)|||COMMON.C_ZCONVERT(\1)
 \$ZCVT\(([^)]+)\)|||COMMON.C_ZCONVERT(\1)

@@ -37,3 +37,19 @@
 2. Fix "" -> ''
 3. Remove IN trong TYPE record
 4. FIX multiple if else lồng nhau
+
+-------------------- update version 20/9/2023 ---------------------------
+1. remove IN trong query (lỗi phát sinh khi gặp query có comment)
+2. thêm comment cho TYPE của query
+3. Fix keyword hoa thường
+4. Fix ifelse
+5. Fix thiếu ; trong Mac
+6. MAC phần implement thiếu IS
+7. Bỏ RETURN trong PROCEDURE, File MAC chỗ INCLUDE_LIST đang dư dấu ,
+8. _ -> || :
+9. Quit độc lập trong if
+
+
+
+
+
