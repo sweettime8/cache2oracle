@@ -71,7 +71,6 @@ def start_convert_cls():
      *  PACKAGE NAME: Use for replacement $ZNAME in Caché
      *****************************************************/
      PACKAGE_NAME VARCHAR2(150) := '{file_convert_name}';
-     
      /*******************************************************
      *  DECLARE METHODS: Declare function or procedure here
      *******************************************************/
@@ -114,9 +113,10 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                         lines = description_method_value.split('\n')
                         formatted_description = "/**\n"
                         for line in lines:
-                            formatted_description += f"     * {line.strip()}\n"
+                            if line.strip() != "":
+                                formatted_description += f"     * {line.strip()}\n"
                         formatted_description += "    **/"
-
+                        formatted_description = formatted_description.replace("<BR>","")
                     else:
                         description_method_value = ""
                         formatted_description = ""
@@ -170,13 +170,13 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                         imp_value = ""
 
                     # Sử dụng biểu thức chính quy để kiểm tra xem "Quit" có tồn tại trong mã Implementation hay không
-                    match_quit = re.findall(r'(Q|q)uit(\s+[a-zA-Z])?', imp_value)
+                    match_quit = re.findall(r'(Q|q)uit\s+([^\n]+)\n', imp_value)
                     if match_quit:
                         # Kiểm tra xem "Quit" có đi kèm với khoảng trắng và sau đó là ky tu bang chu cai
                         last_match = match_quit[-1]
                         quit_command = last_match[0]  # "Q" hoặc "q"
                         letter_after_quit = last_match[1]  # Ký tự chữ sau "Quit" (nếu có)
-                        check_match = re.search(r'\s+[a-zA-Z]', letter_after_quit)
+                        check_match = re.search(r'([^\n]+)', letter_after_quit.strip())
 
                         if check_match:
                             # là function
@@ -190,7 +190,8 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
         {output_constants}
         /* todo */
     BEGIN
-        /* todo */   
+        /* todo */ 
+        RETURN NULL;   
     END {method_name};
                             """
                         else:
@@ -205,7 +206,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
         {output_constants}
         /* todo */
     BEGIN
-        /* todo */   
+        /* todo */  
     END {method_name};
                             """
 
@@ -223,7 +224,8 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                         lines = description_query_value.split('\n')
                         formatted_description_query = "/**\n"
                         for line in lines:
-                            formatted_description_query += f"     * {line.strip()}\n"
+                            if line.strip() != "":
+                                formatted_description_query += f"     * {line.strip()}\n"
                         formatted_description_query += "    **/"
 
                     else:
@@ -268,7 +270,8 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
 
     /* todo */
     BEGIN
-    /* todo */   
+    /* todo */
+        RETURN NULL;    
     END {query_name};
                         """
 
@@ -466,8 +469,7 @@ def start_convert_mac():
                 includes = re.findall(pattern_include, routine_cdata)
                 include_list = ""
                 if includes:
-                    include_list += """
-    /*******************************************************
+                    include_list += """/*******************************************************
      *  DECLARE INCLUDE LIST: Where constants should be
      *******************************************************/                   
      INCLUDE_LIST STRING_ARRAY := STRING_ARRAY("""
@@ -506,9 +508,17 @@ def start_convert_mac():
     /*****************************************************
      *  PACKAGE NAME: Use for replacement $ZNAME in Caché
      *****************************************************/
-     PACKAGE_NAME VARCHAR2(150) := '{file_convert_name}';
+     PACKAGE_NAME VARCHAR2(150) := '{file_convert_name}'; """
+                if include_list:
+                    package_content += f"""
      {include_list}
+                    """
+                if output_constants:
+                    package_content += f"""
      {output_constants}
+                    """
+
+                package_content += f"""
      /*******************************************************
      *  DECLARE METHODS: Declare function or procedure here
      *******************************************************/
@@ -550,7 +560,8 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
      {method_content}IS   
      /* todo */
      BEGIN
-     /* todo */   
+     /* todo */ 
+        RETURN NULL;  
      END {method_name};
                 """
 
@@ -597,6 +608,11 @@ def convert_editor():
             pattern_dola_dola_1 = r'\$\$(\w+)\^(\w+)\.(\w+)\((.*?)\)'
             # Tìm các kết hợp phù hợp trong chuỗi và thực hiện chuyển đổi
             to_code_temp = convert_from_pattern(pattern_dola_dola_1, to_code_temp)
+
+            # check $$[1] : $$MethodName^RoutineName(param1, param2,...) ex : $$GetMotherInfoLog^MotherUpdateLog(SyohinSeq, piDate, CheckCd)
+            pattern_dola_dola_1_2 = r'\$\$(\w+)\^(\w+)\((.*?)\)'
+            # Tìm các kết hợp phù hợp trong chuỗi và thực hiện chuyển đổi
+            to_code_temp = convert_from_pattern_2(pattern_dola_dola_1_2, to_code_temp)
 
             # check $$ [2] $$MethodName(param1, param2,...)
             # input -> $$MethodName(param1, param2,.param3,.param4) -> $$MethodName(param1, param2, param3, param4)
@@ -701,6 +717,25 @@ def convert_from_pattern(pattern, from_code):
         to_code_temp = to_code_temp.replace(input_str, output_str)
     return to_code_temp
 
+def convert_from_pattern_2(pattern, from_code):
+    print("###[convert_from_pattern]###")
+    # Tìm các kết hợp phù hợp trong chuỗi và thực hiện chuyển đổi
+    to_code_temp = from_code
+    matchs = re.findall(pattern, from_code.strip())
+    for match in matchs:
+        m_function = match[0]
+        m_routine = match[1]
+        m_param = match[2]
+        input_str = match[0] + "^" + match[1] + "(" + match[2] + ")"
+        m_routine = ''.join(['_' + c if c.isupper() else c for c in m_routine]).lstrip('_')
+        m_routine = m_routine.upper()
+        # kiểm tra xem param có . không, nếu có remove đi
+        m_param = re.sub(r'\.', '', m_param)
+        output_str = m_routine + "_MAC." + m_function + "(" + m_param + ")"
+
+        to_code_temp = to_code_temp.replace(input_str, output_str)
+    return to_code_temp
+
 
 # check $$[2] : $$MethodName(param1, param2,.param3, .param4)
 def convert_from_pattern_dola_dola_2(pattern, from_code):
@@ -746,33 +781,33 @@ def process_code(source_code):
     pattern3 = r'(\;)([^\n]+)'
     ## bỏ qua không migrate comment
 
-    #check try catch để format trước
+    # check try catch để format trước
     try_catch_pattern = r'Try\s*\{([\s\S]*?)([^{}]+)\}\s*Catch([^{]+)\{([^}]+)\}'
     matchs_try = re.findall(try_catch_pattern, source_code.strip())
     if matchs_try:
-        source_code = re.sub(try_catch_pattern, r'BEGIN\n  \1 \2 \nEXCEPTION\n  WHEN OTHERS THEN\n   \3\4 \nEND;',source_code, flags=re.IGNORECASE)
+        source_code = re.sub(try_catch_pattern, r'BEGIN\n  \1 \2 \nEXCEPTION\n  WHEN OTHERS THEN\n   \3\4 \nEND;',
+                             source_code, flags=re.IGNORECASE)
 
-    #check với biểu thức IF nằm trong 1 dòng và không có {}:
+    # check với biểu thức IF nằm trong 1 dòng và không có {}:
     partern_if_1 = r'If\s*([^\n]+)(Quit)([^\n]+)'
     matchs_if_1 = re.findall(partern_if_1, source_code.strip())
     if matchs_if_1:
-        source_code = re.sub(partern_if_1, r'IF \1 THEN \n\t    RETURN \3 \n\tEND IF;\n', source_code, flags=re.IGNORECASE)
+        source_code = re.sub(partern_if_1, r'IF \1 THEN \n\t    RETURN \3 \n\tEND IF;\n', source_code,
+                             flags=re.IGNORECASE)
 
     # check với biểu thức IF nằm trong 1 dòng và có {}:
-    partern_if_2 = r'If\s*([^{]+)\{([^}]+)'
+    partern_if_2 = r'If\s*([^{]+)\{([^}]+)\}\n'
     matchs_if_2 = re.findall(partern_if_2, source_code.strip())
     if matchs_if_2:
         source_code = re.sub(partern_if_2, r'IF \1 THEN \n\t    \2 \n\tEND IF;\n', source_code, flags=re.IGNORECASE)
 
-
     code_lines = source_code.split('\n')
-
 
     for line in code_lines:
         if "}While" in line:
             processed_code.append(line)
             continue
-        if ("IF" in line and "THEN" in line) or ("END IF;" in line):
+        if ("IF" in line.upper() and "THEN" in line.upper()) or ("END IF;" in line.upper()):
             processed_code.append(line)
             continue
         if "\r" == line:
@@ -785,6 +820,7 @@ def process_code(source_code):
         if re.findall(pattern2, line.strip()):
             processed_code.append(line)
             continue
+        #if (re.findall(pattern3, line.strip())) and (("if".upper or "else".upper() or "elseif") not in line.upper()):
         if re.findall(pattern3, line.strip()):
             processed_code.append(line)
             continue
