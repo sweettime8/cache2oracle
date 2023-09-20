@@ -42,12 +42,13 @@
 1. remove IN trong query (lỗi phát sinh khi gặp query có comment)
 2. thêm comment cho TYPE của query
 3. Fix keyword hoa thường
-4. Fix ifelse
+4. Bổ sung elseif
 5. Fix thiếu ; trong Mac
 6. MAC phần implement thiếu IS
 7. Bỏ RETURN trong PROCEDURE, File MAC chỗ INCLUDE_LIST đang dư dấu ,
 8. _ -> || :
 9. Quit độc lập trong if
+10. update do while
 
 
 

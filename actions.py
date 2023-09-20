@@ -427,6 +427,153 @@ def convert_data_type_table(data_type, param):
         data_type = "TIMESTAMP"
 
 
+@actions.route('/start-convert-mac', methods=['POST', 'GET'])
+def start_convert_mac():
+    try:
+        if request.method == 'POST':
+            print("[start-convert-mac]")
+            logging.info("#### [start-convert-mac] ####")
+            files = request.files.getlist('filepond')
+
+            for xml_file in files:
+                data = xml_file.getvalue()
+                content = xml.dom.minidom.parseString(data)
+                # print(content.toprettyxml(newl=''))
+
+                mac_node = content.getElementsByTagName("Routine")[0]
+                mac_name = mac_node.getAttribute("name")
+
+                # Loại bỏ dấu "."
+                input_str = mac_name.replace(".", "")
+                # Thêm dấu "_" trước chữ in hoa
+                output_str = ''.join(['_' + c if c.isupper() else c for c in input_str]).lstrip('_')
+                # Thêm "_MAC" vào cuối
+                output_str += "_MAC"
+                file_convert_name = output_str.upper()
+                file_convert = "MAC_RESULT/" + file_convert_name + ".sql"
+
+                isExist = os.path.exists("MAC_RESULT")
+                if not isExist:
+                    os.makedirs("MAC_RESULT")
+
+                pattern_method = r'([\w.]+)\(([^)]*)(?<!//)\) (Public|Private|public|private|PUBLIC|PRIVATE)'
+                # Tìm tag <Routine> và lấy nội dung CDATA bên trong
+                routine_cdata = content.getElementsByTagName("Routine")[0].firstChild.data
+                methods = re.findall(pattern_method, routine_cdata)
+
+                pattern_include = r'#Include\s+(\S+)'
+                # Sử dụng re.findall để tìm tất cả các #Include trong đoạn văn bản
+                includes = re.findall(pattern_include, routine_cdata)
+                include_list = ""
+                if includes:
+                    include_list += """
+    /*******************************************************
+     *  DECLARE INCLUDE LIST: Where constants should be
+     *******************************************************/                   
+     INCLUDE_LIST STRING_ARRAY := STRING_ARRAY("""
+                    pattern_storage = '\.storage'
+                    for include in includes:
+                        if not re.search(pattern_storage, include, re.IGNORECASE):
+                            include_list += f"""'{include}',"""
+                    # Loại bỏ dấu "," cuối cùng và thêm dấu ");"
+                    if include_list.endswith(","):
+                        include_list = include_list[:-1] + ');'
+                    else:
+                        include_list += ");"
+                else:
+                    include_list += """
+    /*******************************************************
+     *  DECLARE INCLUDE LIST: Where constants should be
+     *******************************************************/                   
+     INCLUDE_LIST STRING_ARRAY := STRING_ARRAY();"""
+
+                pattern_constant = r'#Define\s+(\w+)\s+"?([^"\n]+)"?\s*'
+                # Sử dụng re.findall để tìm tất cả các #Define trong đoạn văn bản
+                find_defines = re.findall(pattern_constant, routine_cdata)
+                output_constants = """
+     /*******************************************************
+     *  DECLARE CONSTANTS: Constants using in this package
+     *******************************************************/  
+                """
+                if find_defines:
+                    for name, value in find_defines:
+                        output_constants += f"""                 
+    {name} VARCHAR2(150) := '{value}';"""
+
+                package_header = f"CREATE OR REPLACE PACKAGE {file_convert_name} AS "
+                package_content = f"""
+
+    /*****************************************************
+     *  PACKAGE NAME: Use for replacement $ZNAME in Caché
+     *****************************************************/
+     PACKAGE_NAME VARCHAR2(150) := '{file_convert_name}';
+     {include_list}
+     {output_constants}
+     /*******************************************************
+     *  DECLARE METHODS: Declare function or procedure here
+     *******************************************************/
+                """
+
+                package_body = f"""
+     ----------------- END DECLARE METHODS -------------------
+END {file_convert_name};
+/
+CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
+                package_body += f"""
+
+    /*******************************************************
+     *  IMPLEMENTATION: Implement logic here
+     *******************************************************/            
+                                            """
+
+                for method in methods:
+                    method_name = method[0]
+                    method_params = method[1]
+                    # method_access = method[2]
+                    method_access = "RETURN VARCHAR2 "
+                    # Tách các phần từ trong chuỗi đầu vào
+                    input_list = method_params.split(', ')
+                    output_list = []
+                    # Lặp qua danh sách các phần tử và thêm phần tử chuyển đổi vào danh sách mới
+                    for item in input_list:
+                        if "po" in item:
+                            output_list.append(f'{item} OUT VARCHAR2')
+                        else:
+                            output_list.append(f'{item} IN VARCHAR2')
+                    output_params = ', '.join(output_list)
+                    # mrd
+                    method_content = "FUNCTION " + method_name + "(" + output_params + ") " + method_access
+                    package_content += f"""
+     {method_content};       
+                                    """
+                    package_body += f"""
+     {method_content}IS   
+     /* todo */
+     BEGIN
+     /* todo */   
+     END {method_name};
+                """
+
+                package_end = f"""
+     ----------------- END IMPLEMENTATION -------------------
+END {file_convert_name};
+/
+                """
+
+                file_content = package_header + package_content + package_body + package_end
+
+                with open(file_convert, "w", encoding="utf-8") as sql_file:
+                    sql_file.write(file_content)
+
+            return jsonify({'status': 'success', 'message': 'Check File successful!', 'data': "data"})
+
+    except Exception as e:
+        # Xảy ra lỗi
+        print("error : ", e)
+        logging.error(" [start_convert_cls] error : ", e)
+        return jsonify({'status': 'success', 'message': 'Check File error!', 'data': e})
+
+
 @actions.route('/convert_editor', methods=['POST'])
 def convert_editor():
     print("[convert_editor] : ")
@@ -437,8 +584,11 @@ def convert_editor():
             conversion_rules_file_path = "./config/convert_cache_to_oracle_rules.txt"
             conversion_rules = read_conversion_rules_from_file(conversion_rules_file_path)
 
+            # convert _ -> ||
+            to_code_temp = re.sub(r'_', r'||', from_code)
+
             # convert if else :
-            to_code_temp = process_code(from_code)
+            to_code_temp = process_code(to_code_temp)
 
             # Convert comment #; /// ;
             to_code_temp = convert_comment_pattern(to_code_temp)
@@ -450,7 +600,7 @@ def convert_editor():
 
             # check $$ [2] $$MethodName(param1, param2,...)
             # input -> $$MethodName(param1, param2,.param3,.param4) -> $$MethodName(param1, param2, param3, param4)
-            pattern_dola_dola_2 = r'\$\$([^\s(]+)\(([^)]+)'
+            pattern_dola_dola_2 = r'\$\$([^\s(\^]+)\(([^)]+)'
             to_code_temp = convert_from_pattern_dola_dola_2(pattern_dola_dola_2, to_code_temp)
 
             # check Do[3] : Do MethodName^RoutineName(param, ...) -> ROUTINE_NAME_MAC.MethodName(param1, param2,...)
@@ -586,165 +736,45 @@ def convert_cache_to_oracle(cache_code, conversion_rules):
     return oracle_code
 
 
-@actions.route('/start-convert-mac', methods=['POST', 'GET'])
-def start_convert_mac():
-    try:
-        if request.method == 'POST':
-            print("[start-convert-mac]")
-            logging.info("#### [start-convert-mac] ####")
-            files = request.files.getlist('filepond')
-
-            for xml_file in files:
-                data = xml_file.getvalue()
-                content = xml.dom.minidom.parseString(data)
-                # print(content.toprettyxml(newl=''))
-
-                mac_node = content.getElementsByTagName("Routine")[0]
-                mac_name = mac_node.getAttribute("name")
-
-                # Loại bỏ dấu "."
-                input_str = mac_name.replace(".", "")
-                # Thêm dấu "_" trước chữ in hoa
-                output_str = ''.join(['_' + c if c.isupper() else c for c in input_str]).lstrip('_')
-                # Thêm "_MAC" vào cuối
-                output_str += "_MAC"
-                file_convert_name = output_str.upper()
-                file_convert = "MAC_RESULT/" + file_convert_name + ".sql"
-
-                isExist = os.path.exists("MAC_RESULT")
-                if not isExist:
-                    os.makedirs("MAC_RESULT")
-
-                pattern_method = r'([\w.]+)\(([^)]*)(?<!//)\) (Public|Private)'
-                # Tìm tag <Routine> và lấy nội dung CDATA bên trong
-                routine_cdata = content.getElementsByTagName("Routine")[0].firstChild.data
-                methods = re.findall(pattern_method, routine_cdata)
-
-                pattern_include = r'#Include\s+(\S+)'
-                # Sử dụng re.findall để tìm tất cả các #Include trong đoạn văn bản
-                includes = re.findall(pattern_include, routine_cdata)
-                include_list = ""
-                if includes:
-                    include_list += """
-    /*******************************************************
-     *  DECLARE INCLUDE LIST: Where constants should be
-     *******************************************************/                   
-     INCLUDE_LIST STRING_ARRAY := STRING_ARRAY("""
-                    pattern_storage = '\.storage'
-                    for include in includes:
-                        if not re.search(pattern_storage, include, re.IGNORECASE):
-                            include_list += f"""'{include}',"""
-                    # Loại bỏ dấu "," cuối cùng và thêm dấu ");"
-                    if include_list.endswith(","):
-                        include_list = include_list[:-1] + ');'
-                    else:
-                        include_list += ");"
-                else:
-                    include_list += """
-    /*******************************************************
-     *  DECLARE INCLUDE LIST: Where constants should be
-     *******************************************************/                   
-     INCLUDE_LIST STRING_ARRAY := STRING_ARRAY();"""
-
-                pattern_constant = r'#Define\s+(\w+)\s+"?([^"\n]+)"?\s*'
-                # Sử dụng re.findall để tìm tất cả các #Define trong đoạn văn bản
-                find_defines = re.findall(pattern_constant, routine_cdata)
-                output_constants = """
-     /*******************************************************
-     *  DECLARE CONSTANTS: Constants using in this package
-     *******************************************************/  
-                """
-                if find_defines:
-                    for name, value in find_defines:
-                        output_constants += f"""                 
-    {name} VARCHAR2(150) := '{value}';"""
-
-                package_header = f"CREATE OR REPLACE PACKAGE {file_convert_name} AS "
-                package_content = f"""
-
-    /*****************************************************
-     *  PACKAGE NAME: Use for replacement $ZNAME in Caché
-     *****************************************************/
-     PACKAGE_NAME VARCHAR2(150) := '{file_convert_name}';
-     {include_list}
-     {output_constants}
-     /*******************************************************
-     *  DECLARE METHODS: Declare function or procedure here
-     *******************************************************/
-                """
-
-                package_body = f"""
-     ----------------- END DECLARE METHODS -------------------
-END {file_convert_name};
-/
-CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
-                package_body += f"""
-
-    /*******************************************************
-     *  IMPLEMENTATION: Implement logic here
-     *******************************************************/            
-                                            """
-
-                for method in methods:
-                    method_name = method[0]
-                    method_params = method[1]
-                    # method_access = method[2]
-                    method_access = "RETURN VARCHAR2 "
-                    # Tách các phần từ trong chuỗi đầu vào
-                    input_list = method_params.split(', ')
-                    output_list = []
-                    # Lặp qua danh sách các phần tử và thêm phần tử chuyển đổi vào danh sách mới
-                    for item in input_list:
-                        if "po" in item:
-                            output_list.append(f'{item} OUT VARCHAR2')
-                        else:
-                            output_list.append(f'{item} IN VARCHAR2')
-                    output_params = ', '.join(output_list)
-                    # mrd
-                    method_content = "FUNCTION " + method_name + "(" + output_params + ") " + method_access
-                    package_content += f"""
-     {method_content};       
-                                    """
-                    package_body += f"""
-     {method_content}IS   
-     /* todo */
-     BEGIN
-     /* todo */   
-     END {method_name};
-                """
-
-                package_end = f"""
-     ----------------- END IMPLEMENTATION -------------------
-END {file_convert_name};
-/
-                """
-
-                file_content = package_header + package_content + package_body + package_end
-
-                with open(file_convert, "w", encoding="utf-8") as sql_file:
-                    sql_file.write(file_content)
-
-            return jsonify({'status': 'success', 'message': 'Check File successful!', 'data': "data"})
-
-    except Exception as e:
-        # Xảy ra lỗi
-        print("error : ", e)
-        logging.error(" [start_convert_cls] error : ", e)
-        return jsonify({'status': 'success', 'message': 'Check File error!', 'data': e})
-
-
 #########################################process if else##################################################
 
 def process_code(source_code):
     processed_code = []
     stack = []
-    code_lines = source_code.split('\n')
     pattern = r'(If|if|IF)\s*([^\n]+)\}'
     pattern2 = r'(\/\/)([^\n]+)'
     pattern3 = r'(\;)([^\n]+)'
     ## bỏ qua không migrate comment
 
+    #check try catch để format trước
+    try_catch_pattern = r'Try\s*\{([\s\S]*?)([^{}]+)\}\s*Catch([^{]+)\{([^}]+)\}'
+    matchs_try = re.findall(try_catch_pattern, source_code.strip())
+    if matchs_try:
+        source_code = re.sub(try_catch_pattern, r'BEGIN\n  \1 \2 \nEXCEPTION\n  WHEN OTHERS THEN\n   \3\4 \nEND;',source_code, flags=re.IGNORECASE)
+
+    #check với biểu thức IF nằm trong 1 dòng và không có {}:
+    partern_if_1 = r'If\s*([^\n]+)(Quit)([^\n]+)'
+    matchs_if_1 = re.findall(partern_if_1, source_code.strip())
+    if matchs_if_1:
+        source_code = re.sub(partern_if_1, r'IF \1 THEN \n\t    RETURN \3 \n\tEND IF;\n', source_code, flags=re.IGNORECASE)
+
+    # check với biểu thức IF nằm trong 1 dòng và có {}:
+    partern_if_2 = r'If\s*([^{]+)\{([^}]+)'
+    matchs_if_2 = re.findall(partern_if_2, source_code.strip())
+    if matchs_if_2:
+        source_code = re.sub(partern_if_2, r'IF \1 THEN \n\t    \2 \n\tEND IF;\n', source_code, flags=re.IGNORECASE)
+
+
+    code_lines = source_code.split('\n')
+
+
     for line in code_lines:
+        if "}While" in line:
+            processed_code.append(line)
+            continue
+        if ("IF" in line and "THEN" in line) or ("END IF;" in line):
+            processed_code.append(line)
+            continue
         if "\r" == line:
             continue
         if "#;" in line:
@@ -760,7 +790,13 @@ def process_code(source_code):
             continue
         if ("If ".upper() in line.upper()) and ("ElseIf".upper() not in line.upper()):
             if "{" in line:
-                condition = (line.upper()).split("IF ")[1].split("{")[0]
+                if "IF " in line:
+                    condition = (line).split("IF ")[1].split("{")[0]
+                elif "If" in line:
+                    condition = (line).split("If ")[1].split("{")[0]
+                else:
+                    condition = (line).split("if ")[1].split("{")[0]
+
                 stack.append(True)  # Bắt đầu một cấp độ mới
                 processed_code.append(" " * (len(stack) - 1) * 4 + f"IF {condition} THEN")
             else:
@@ -774,13 +810,24 @@ def process_code(source_code):
             else:
                 processed_code[-1] += " ELSE"
         elif "ElseIf".upper() in line.upper():
-            if "}" in line:
-                if stack:
-                    stack.pop()  # Kết thúc một cấp độ
-                processed_code.append(" " * len(stack) * 4 + "ELSEIF")
-                stack.append(True)  # Bắt đầu một cấp độ mới
+            if "{" in line:
+                line = line.replace("}", "")
+                if "ElseIf " in line:
+                    condition = (line).split("ElseIf ")[1].split("{")[0]
+                elif "elseIf" in line:
+                    condition = (line).split("elseIf ")[1].split("{")[0]
+                else:
+                    condition = (line).split("elseif ")[1].split("{")[0]
+                processed_code.append(" " * (len(stack) - 1) * 4 + f"ELSIF {condition} ")
             else:
-                processed_code[-1] += " ELSEIF"
+                processed_code.append(" " * len(stack) * 4 + f"ELSIF {condition} ")
+            # if "}" in line:
+            #     if stack:
+            #         stack.pop()  # Kết thúc một cấp độ
+            #     processed_code.append(" " * len(stack) * 4 + "ELSIF")
+            #     stack.append(True)  # Bắt đầu một cấp độ mới
+            # else:
+            #     processed_code[-1] += " ELSIF"
         elif "}" in line:
             line = line.replace("}", "")
             if stack:
