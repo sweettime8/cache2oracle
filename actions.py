@@ -463,6 +463,9 @@ def start_convert_mac():
                 routine_cdata = content.getElementsByTagName("Routine")[0].firstChild.data
                 methods = re.findall(pattern_method, routine_cdata)
 
+                pattern_method_javadoc = r'(\/{2,}\s*(.*?)\s*<BR>[\s\S]*?)([\w.]+)\(([^)]+)\)\s*(Public|Private|public|private|PUBLIC|PRIVATE|)\s*{([\s\S]*?)'
+                methods_javadoc = re.findall(pattern_method_javadoc, routine_cdata)
+
                 pattern_include = r'#Include\s+(\S+)'
                 # Sử dụng re.findall để tìm tất cả các #Include trong đoạn văn bản
                 includes = re.findall(pattern_include, routine_cdata)
@@ -535,9 +538,10 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
      *******************************************************/            
                                             """
 
-                for method in methods:
-                    method_name = method[0]
-                    method_params = method[1]
+                for method in methods_javadoc:
+                    method_comment = method[0]
+                    method_name = method[2]
+                    method_params = method[3]
                     # method_access = method[2]
                     method_access = "RETURN VARCHAR2 "
                     # Tách các phần từ trong chuỗi đầu vào
@@ -551,8 +555,12 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                             output_list.append(f'{item} IN VARCHAR2')
                     output_params = ', '.join(output_list)
                     # mrd
+                    #chuyển đổi comment :
+                    formatted_description = "/**\n"
+                    #method_comment =
                     method_content = "FUNCTION " + method_name + "(" + output_params + ") " + method_access
                     package_content += f"""
+     {method_comment}
      {method_content};       
                                     """
                     package_body += f"""
