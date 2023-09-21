@@ -9,3 +9,5 @@
 \s+         : Ký tự \s+ khớp với một hoặc nhiều ký tự khoảng trắng
 \w+         : để khớp với một hoặc nhiều ký tự từ
 [^)]*       : khớp với bất kỳ ký tự nào trừ dấu đóng ngoặc ")" và * cho phép khớp với 0 hoặc nhiều ký tự
+
+([\s\S]*?)\} : mọi ký tự cho đến khi gặp }

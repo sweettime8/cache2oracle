@@ -502,7 +502,7 @@ def start_convert_mac():
                 if find_defines:
                     for name, value in find_defines:
                         output_constants += f"""                 
-    {name} VARCHAR2(150) := '{value}';"""
+     {name} VARCHAR2(150) := '{value}';"""
 
                 package_header = f"CREATE OR REPLACE PACKAGE {file_convert_name} AS "
                 package_content = f"""
@@ -555,7 +555,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                             output_list.append(f'{item} IN VARCHAR2')
                     output_params = ', '.join(output_list)
                     # mrd
-                    #chuyển đổi comment :
+                    # chuyển đổi comment :
                     method_comment_mac = "/**\n"
                     lines = method_comment.split('\n')
                     for line in lines:
@@ -802,6 +802,13 @@ def process_code(source_code):
         source_code = re.sub(try_catch_pattern, r'BEGIN\n  \1 \2 \nEXCEPTION\n  WHEN OTHERS THEN\n   \3\4 \nEND;',
                              source_code, flags=re.IGNORECASE)
 
+    # for step không lồng nhau
+    pattern_for_step_1 = r'\s*(For)\s*(\w+)\s*\=(\w+)\:(\w+)\:([^{]*)\s*\{([\s\S]*?)\}'
+    matches_for_step_1 = re.findall(pattern_for_step_1, source_code.strip(), flags=re.IGNORECASE)
+    if matches_for_step_1:
+        source_code = re.sub(pattern_for_step_1, r'FOR \2 IN \3 .. \5 LOOP \n\t   \6\nEND LOOP;',
+                             source_code, flags=re.IGNORECASE)
+
     # check với biểu thức IF nằm trong 1 dòng và không có {}, có set:
     pattern_if_0 = r'If\s+([^\n{]+)\s*(Set)\s*([^\n]*)'
     matches_if_0 = re.findall(pattern_if_0, source_code.strip(), flags=re.IGNORECASE)
@@ -903,5 +910,110 @@ def process_code(source_code):
     result = ""
     for line in processed_code:
         result += line + "\n"
-    logging.info(" [end process_code ifelse]")
+    logging.info(" [end process_code if/else]")
     return result
+
+
+source_code = """
+    Set No = No + 1
+    Set No = No + 1
+    For i=1:1:$Length(SyohinMotherInfo) {    
+        Set $List(ExpDataStock,  $$$tmpExpDataStockListMotherInfo + No) = $ListGet(SyohinMotherInfo, i)
+        Set No = No + 1
+        if ( a= b ) {
+            For i=1:1:$Length(tttt) {  
+                Set No = No + 1
+            }
+        }
+        For i=1:1:$Length(tttt) {  
+            Set No = No + 1
+        }
+        
+    }
+    
+    For i=1:1:$Length(tttt) {  
+            Set No = No + 1
+    }
+    
+"""
+
+
+def checkLine(source_code):
+    print("checkLine")
+    lines = source_code.split('\n')
+    line_base = ""
+    line_new = ""
+    index_line = 0
+    for i, line in enumerate(lines):
+        if ("for".upper() not in line.upper()) and ("{" not in line):
+            line_base += line + "\n"
+        elif "for".upper() in line.upper() and "{" in line:
+            line_new = line  # Bắt đầu từ dòng có "for"
+            for j in range(i + 1, len(lines)):
+                line_new += "\n" + lines[j]  # Thêm các dòng tiếp theo vào linenew
+            line_base += "\n" + checkFor(line_new)
+            index_line = i
+            break
+        else:
+            line_base += line + "\n"
+
+    if(index_line < len(lines)):
+        checkLine(line_base)
+
+    return line_base
+
+
+def checkFor(source_code):
+    print("checkFor")
+    count_braces = 0
+    inside_for = False
+    lines_for = ""
+    lines = source_code.split('\n')
+    line_base_for = ""
+    count = 1;
+    pattern_for = '\s*(For)\s*(\w+)\s*\=(\w+)\:(\w+)\:([^{]*)\s*\{(([\s\S]*?)\}'
+    pattern_for_loop = '([\s\S]*?)\}'
+    pattern_for_loop_end = ')'
+    for i, line in enumerate(lines):
+        # Nếu trong một vòng for
+        if inside_for:
+            if "{" in line:
+                count += 1
+            # Tính toán số ngoặc mở và đóng
+            count_braces += line.count("{")
+            count_braces -= line.count("}")
+            lines_for += line + "\n"
+            # Nếu số ngoặc mở và đóng bằng nhau, vòng for kết thúc
+            if count_braces == 0:
+                inside_for = False
+                for x in range(count):
+                    print(" x = " + str(x))
+                    pattern_for += pattern_for_loop
+                pattern_for += pattern_for_loop_end
+                matches_pattern = re.findall(pattern_for, source_code.strip(), flags=re.IGNORECASE)
+                if matches_pattern:
+                    source_code = re.sub(pattern_for, r'FOR \2 IN \3 .. \5 LOOP \n\t   \6\nEND LOOP', source_code,
+                                         flags=re.IGNORECASE)
+                return source_code
+        else:
+            # Kiểm tra nếu dòng chứa vòng for
+            if "For" in line:
+                inside_for = True
+                count_braces += line.count("{")
+                count_braces -= line.count("}")
+                lines_for += line + "\n"
+
+
+def checkIfElse(source_code):
+    print("checkIfElse")
+
+
+def checkTryCatch(source_code):
+    print("checkTryCatch")
+
+
+def checkDoWhile(source_code):
+    print("checkDoWhile")
+
+
+result = checkLine(source_code)
