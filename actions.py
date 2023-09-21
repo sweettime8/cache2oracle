@@ -556,11 +556,16 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                     output_params = ', '.join(output_list)
                     # mrd
                     #chuyển đổi comment :
-                    formatted_description = "/**\n"
-                    #method_comment =
+                    method_comment_mac = "/**\n"
+                    lines = method_comment.split('\n')
+                    for line in lines:
+                        if line.strip() != "":
+                            method_comment_mac += f"     * {line.strip()}\n"
+                    method_comment_mac += "     **/"
+                    method_comment_mac = method_comment_mac.replace("<BR>", "").replace("///", "")
                     method_content = "FUNCTION " + method_name + "(" + output_params + ") " + method_access
                     package_content += f"""
-     {method_comment}
+     {method_comment_mac}
      {method_content};       
                                     """
                     package_body += f"""
