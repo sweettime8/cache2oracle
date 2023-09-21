@@ -43,3 +43,5 @@ logfile.txt
 /datatest/**
 /CLS_RESULT/**
 /MAC_RESULT/**
+/_pycache_/**
+cachetooracle.spec
