@@ -1,5 +1,4 @@
 from flask import Blueprint, request, render_template, redirect, url_for, flash, Response, jsonify
-import warnings
 import re
 import os
 import xml.dom.minidom
@@ -116,7 +115,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                             if line.strip() != "":
                                 formatted_description += f"     * {line.strip()}\n"
                         formatted_description += "    **/"
-                        formatted_description = formatted_description.replace("<BR>","")
+                        formatted_description = formatted_description.replace("<BR>", "")
                     else:
                         description_method_value = ""
                         formatted_description = ""
@@ -227,7 +226,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                             if line.strip() != "":
                                 formatted_description_query += f"     * {line.strip()}\n"
                         formatted_description_query += "    **/"
-
+                        formatted_description_query = formatted_description_query.replace("<BR>", "")
                     else:
                         formatted_description_query = ""
 
@@ -284,9 +283,9 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
 
     except Exception as e:
         # Xảy ra lỗi
-        print("error : ", e)
-        logging.error(" [start_convert_cls] error : ", e)
-        return jsonify({'status': 'success', 'message': 'Check File error!', 'data': e})
+        print("[start_convert_cls] error : " + str(e))
+        logging.error(" [start_convert_cls] error : " + str(e))
+        return jsonify({'status': 'success', 'message': 'Check File error!', 'data': str(e)})
 
 
 def convert_query_parameter(input_str):
@@ -459,7 +458,7 @@ def start_convert_mac():
                 if not isExist:
                     os.makedirs("MAC_RESULT")
 
-                pattern_method = r'([\w.]+)\(([^)]*)(?<!//)\) (Public|Private|public|private|PUBLIC|PRIVATE)'
+                pattern_method = r'([\w.]+)\(([^)]*)(?<!\/\/)\)\s*(Public|Private|public|private|PUBLIC|PRIVATE|)\n\{'
                 # Tìm tag <Routine> và lấy nội dung CDATA bên trong
                 routine_cdata = content.getElementsByTagName("Routine")[0].firstChild.data
                 methods = re.findall(pattern_method, routine_cdata)
@@ -580,9 +579,9 @@ END {file_convert_name};
 
     except Exception as e:
         # Xảy ra lỗi
-        print("error : ", e)
-        logging.error(" [start_convert_cls] error : ", e)
-        return jsonify({'status': 'success', 'message': 'Check File error!', 'data': e})
+        print("[start_convert_mac] error : " + str(e))
+        logging.error(" [start_convert_mac] error : " + str(e))
+        return jsonify({'status': 'success', 'message': 'Check File error!', 'data': str(e)})
 
 
 @actions.route('/convert_editor', methods=['POST'])
@@ -664,7 +663,8 @@ def convert_editor():
 
     except Exception as e:
         flash('Error :' + str(e), 'danger')
-        logging.error(" [convert_editor] error : ", e)
+        print("[convert_editor] error : " + str(e))
+        logging.error(" [convert_editor] error : " + str(e))
         return redirect(url_for('actions.convert_code'))
 
 
@@ -716,6 +716,7 @@ def convert_from_pattern(pattern, from_code):
 
         to_code_temp = to_code_temp.replace(input_str, output_str)
     return to_code_temp
+
 
 def convert_from_pattern_2(pattern, from_code):
     print("###[convert_from_pattern]###")
@@ -783,28 +784,34 @@ def process_code(source_code):
 
     # check try catch để format trước
     try_catch_pattern = r'Try\s*\{([\s\S]*?)([^{}]+)\}\s*Catch([^{]+)\{([^}]+)\}'
-    matchs_try = re.findall(try_catch_pattern, source_code.strip())
-    if matchs_try:
+    matches_try = re.findall(try_catch_pattern, source_code.strip(), flags=re.IGNORECASE)
+    if matches_try:
         source_code = re.sub(try_catch_pattern, r'BEGIN\n  \1 \2 \nEXCEPTION\n  WHEN OTHERS THEN\n   \3\4 \nEND;',
                              source_code, flags=re.IGNORECASE)
 
-    # check với biểu thức IF nằm trong 1 dòng và không có {}:
-    partern_if_1 = r'If\s*([^\n]+)(Quit)([^\n]+)'
-    matchs_if_1 = re.findall(partern_if_1, source_code.strip())
-    if matchs_if_1:
-        source_code = re.sub(partern_if_1, r'IF \1 THEN \n\t    RETURN \3 \n\tEND IF;\n', source_code,
+    # check với biểu thức IF nằm trong 1 dòng và không có {}, có set:
+    pattern_if_0 = r'If\s+([^\n{]+)\s*(Set)\s*([^\n]*)'
+    matches_if_0 = re.findall(pattern_if_0, source_code.strip(), flags=re.IGNORECASE)
+    if matches_if_0:
+        source_code = re.sub(pattern_if_0, r'IF \1 THEN \n\t    \2 \3 \n\tEND IF;\n', source_code,
+                             flags=re.IGNORECASE)
+
+    # check với biểu thức IF nằm trong 1 dòng và không có {}, có quit:
+    pattern_if_1 = r'If\s+([^\n{]+)(Quit)([^\n]+)'
+    matches_if_1 = re.findall(pattern_if_1, source_code.strip(), flags=re.IGNORECASE)
+    if matches_if_1:
+        source_code = re.sub(pattern_if_1, r'IF \1 THEN \n\t    RETURN \3; \n\tEND IF;\n', source_code,
                              flags=re.IGNORECASE)
 
     # check với biểu thức IF nằm trong 1 dòng và có {}:
-    partern_if_2 = r'If\s*([^{]+)\{([^}]+)\}\n'
-    matchs_if_2 = re.findall(partern_if_2, source_code.strip())
-    if matchs_if_2:
-        source_code = re.sub(partern_if_2, r'IF \1 THEN \n\t    \2 \n\tEND IF;\n', source_code, flags=re.IGNORECASE)
+    pattern_if_2 = r'If\s*([^{]+)\{([^}]+)\}\n'
+    matches_if_2 = re.findall(pattern_if_2, source_code.strip())
+    if matches_if_2:
+        source_code = re.sub(pattern_if_2, r'IF \1 THEN \n\t    \2 \n\tEND IF;\n', source_code, flags=re.IGNORECASE)
 
     code_lines = source_code.split('\n')
-
     for line in code_lines:
-        if "}While" in line:
+        if "}While".upper() in line.upper():
             processed_code.append(line)
             continue
         if ("IF" in line.upper() and "THEN" in line.upper()) or ("END IF;" in line.upper()):
@@ -820,8 +827,9 @@ def process_code(source_code):
         if re.findall(pattern2, line.strip()):
             processed_code.append(line)
             continue
-        #if (re.findall(pattern3, line.strip())) and (("if".upper or "else".upper() or "elseif") not in line.upper()):
-        if re.findall(pattern3, line.strip()):
+        # if (re.findall(pattern3, line.strip())) and (("if".upper or "else".upper() or "elseif") not in line.upper()):
+        if re.findall(pattern3, line.strip(), flags=re.IGNORECASE):
+            line = re.sub(pattern3, r'', line.strip(), flags=re.IGNORECASE)
             processed_code.append(line)
             continue
         if ("If ".upper() in line.upper()) and ("ElseIf".upper() not in line.upper()):
@@ -865,11 +873,13 @@ def process_code(source_code):
             # else:
             #     processed_code[-1] += " ELSIF"
         elif "}" in line:
-            line = line.replace("}", "")
             if stack:
+                line = line.replace("}", "")
                 stack.pop()  # Kết thúc một cấp độ
-            processed_code[-1] += f"\n{line}"  # Đưa dấu "}" xuống dòng mới
-            processed_code.append(" " * len(stack) * 4 + "END IF;")  # Thêm "END IF"
+                processed_code[-1] += f"\n{line}"  # Đưa dấu "}" xuống dòng mới
+                processed_code.append(" " * len(stack) * 4 + "END IF;")  # Thêm "END IF"
+            else:
+                processed_code.append(line)
         else:
             processed_code.append(" " * len(stack) * 4 + line)
 
@@ -880,4 +890,5 @@ def process_code(source_code):
     result = ""
     for line in processed_code:
         result += line + "\n"
+    logging.info(" [end process_code ifelse]")
     return result

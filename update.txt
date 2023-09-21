@@ -51,16 +51,15 @@
 10. update do while
 
 ------------------  update version 21/9/2023 ---------------------------
-1. file cls : -  Com.ClassMethodBarcodeEntry
-              -
+1. fix một số lỗi vòng lặp if
 2. Bỏ <BR> , xóa bớt dòng thừa trong java doc cls
 3. update $$[1] : $$GetMotherInfoLog^MotherUpdateLog(SyohinSeq, piDate, .CheckCd)
                 -> COM_MOTHER_UPDATE_LOG_MAC.GetMotherInfoLog(SyohinSeq, piDate, CheckCd)
 4. fix dư space all cls
 5. fix khai báo nhầm procedure
 6. thêm RETURN NULL
-(1,2,3,4,5,6,7)
+7. FIX lỗi Khai báo dư function vì sử dụng code đã comment
+8. Fix lỗi thiếu function khi thiếu public|private
+
 
 7 . 8 - chưa làm ( file mac thiêu javadoc)
-    9 - chưa làm : Khai báo dư function vì sử dụng code đã comment
-    10 - Thiếu function khi thiếu public ( chưa co solution)
