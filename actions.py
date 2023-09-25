@@ -178,8 +178,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
 
                         if check_match and return_type_value != "":
                             # là function
-                            package_content += f"""
-    {formatted_description}
+                            package_content += f"""{formatted_description}
     FUNCTION {method_name}({formal_spec_value}) RETURN {return_type_value};    
                             """
                             package_body += f"""
@@ -202,7 +201,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                             # là procedure
                             package_content += f"""
     {formatted_description}                        
-    PROCEDURE {method_name}({formal_spec_value}) ;        
+    PROCEDURE {method_name}({formal_spec_value});        
                                                     """
                             package_body += f"""
     PROCEDURE {method_name}({formal_spec_value}) IS"""
@@ -578,16 +577,21 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                     method_name = method[2]
                     method_params = method[3]
                     # method_access = method[2]
-                    method_access = "RETURN VARCHAR2 "
+                    method_access = "RETURN VARCHAR2"
                     # Tách các phần từ trong chuỗi đầu vào
                     input_list = method_params.split(', ')
+
                     output_list = []
                     # Lặp qua danh sách các phần tử và thêm phần tử chuyển đổi vào danh sách mới
                     for item in input_list:
+                        if "=" in item:
+                            # mrd pro
+                            item = item.replace("=", "DEFAULT")
                         if "po" in item:
                             output_list.append(f'{item} OUT VARCHAR2')
                         else:
                             output_list.append(f'{item} IN VARCHAR2')
+
                     output_params = ', '.join(output_list)
                     # mrd
                     # chuyển đổi comment :

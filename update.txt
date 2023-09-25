@@ -71,3 +71,6 @@
 3 . trong BEGIN END đổi sang comment --TODO: Implement method body here
 4 . Fix lỗi gen nhầm function trong file mac
 5 . Fix lỗi declare Method[2] không hoạt động
+6 . Fix space cuối file
+7 . Fix đọc 300 file
+8 . Fix Default (bên dự án check thêm) hiện đang để = sang DEFAULT
