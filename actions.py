@@ -69,8 +69,8 @@ def start_convert_cls():
     /*****************************************************
      *  PACKAGE NAME: Use for replacement $ZNAME in Caché
      *****************************************************/
-     PACKAGE_NAME VARCHAR2(150) := '{file_convert_name}';
-     /*******************************************************
+    PACKAGE_NAME VARCHAR2(150) := '{file_convert_name}';
+    /*******************************************************
      *  DECLARE METHODS: Declare function or procedure here
      *******************************************************/
                 """
@@ -225,7 +225,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                         for line in lines:
                             if line.strip() != "":
                                 formatted_description_query += f"     * {line.strip()}\n"
-                        formatted_description_query += "    **/"
+                        formatted_description_query += "     **/"
                         formatted_description_query = formatted_description_query.replace("<BR>", "")
                     else:
                         formatted_description_query = ""
@@ -920,7 +920,7 @@ source_code = """
     For i=1:1:$Length(SyohinMotherInfo) {    
         Set $List(ExpDataStock,  $$$tmpExpDataStockListMotherInfo + No) = $ListGet(SyohinMotherInfo, i)
         Set No = No + 1
-        if ( a= b ) {
+        For i=1:1:$Length(tttt) {  
             For i=1:1:$Length(tttt) {  
                 Set No = No + 1
             }
@@ -947,6 +947,8 @@ def checkLine(source_code):
     for i, line in enumerate(lines):
         if ("for".upper() not in line.upper()) and ("{" not in line):
             line_base += line + "\n"
+        elif "If".upper() in line.upper() and "{" in line:
+            print("if")
         elif "for".upper() in line.upper() and "{" in line:
             line_new = line  # Bắt đầu từ dòng có "for"
             for j in range(i + 1, len(lines)):
@@ -970,10 +972,11 @@ def checkFor(source_code):
     lines_for = ""
     lines = source_code.split('\n')
     line_base_for = ""
-    count = 1;
+    count = 0
     pattern_for = '\s*(For)\s*(\w+)\s*\=(\w+)\:(\w+)\:([^{]*)\s*\{(([\s\S]*?)\}'
     pattern_for_loop = '([\s\S]*?)\}'
-    pattern_for_loop_end = ')'
+    pattern_for_loop_end = '([\s\S]*?))\}'
+    line_to_end = ""
     for i, line in enumerate(lines):
         # Nếu trong một vòng for
         if inside_for:
@@ -986,15 +989,23 @@ def checkFor(source_code):
             # Nếu số ngoặc mở và đóng bằng nhau, vòng for kết thúc
             if count_braces == 0:
                 inside_for = False
-                for x in range(count):
-                    print(" x = " + str(x))
-                    pattern_for += pattern_for_loop
-                pattern_for += pattern_for_loop_end
+                if count > 0:
+                    for x in range(count):
+                        print(" x = " + str(x))
+                        if x < count-1:
+                            pattern_for += pattern_for_loop
+                        else:
+                            pattern_for += pattern_for_loop_end
+                else:
+                    pattern_for += pattern_for_loop_end
                 matches_pattern = re.findall(pattern_for, source_code.strip(), flags=re.IGNORECASE)
                 if matches_pattern:
-                    source_code = re.sub(pattern_for, r'FOR \2 IN \3 .. \5 LOOP \n\t   \6\nEND LOOP', source_code,
+                    lines_for = re.sub(pattern_for, r'FOR \2 IN \3 .. \5 LOOP \n\t   \6\nEND LOOP\n', lines_for,
                                          flags=re.IGNORECASE)
-                return source_code
+                    for j in range(i + 1, len(lines)):
+                        line_to_end += "\n" + lines[j]  # Thêm các dòng tiếp theo vào linenew
+                    lines_for += "\n" + line_to_end
+                return lines_for
         else:
             # Kiểm tra nếu dòng chứa vòng for
             if "For" in line:
@@ -1016,4 +1027,4 @@ def checkDoWhile(source_code):
     print("checkDoWhile")
 
 
-result = checkLine(source_code)
+#result = checkLine(source_code)
