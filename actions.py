@@ -98,7 +98,6 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
 
                 for i in range(len(methods)):
                     method_name = methods[i].getAttribute("name")
-
                     # Không migrate Execute,Fetch,Close
                     if ("Execute" in method_name) or ("Fetch" in method_name) or ("Close" in method_name):
                         continue
@@ -145,7 +144,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                         includes = re.findall(pattern, imp_value)
                         include_list = ""
                         if includes:
-                            include_list += """
+                            include_list += f"""
         -- Declare include list to know where constants should be                    
         INCLUDE_LIST STRING_ARRAY := STRING_ARRAY("""
                             pattern_storage = '\.storage'
@@ -177,19 +176,25 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                         letter_after_quit = last_match[1]  # Ký tự chữ sau "Quit" (nếu có)
                         check_match = re.search(r'([^\n]+)', letter_after_quit.strip())
 
-                        if check_match:
+                        if check_match and return_type_value != "":
                             # là function
                             package_content += f"""
     {formatted_description}
     FUNCTION {method_name}({formal_spec_value}) RETURN {return_type_value};    
                             """
                             package_body += f"""
-    FUNCTION {method_name}({formal_spec_value}) RETURN {return_type_value} IS  
+    FUNCTION {method_name}({formal_spec_value}) RETURN {return_type_value} IS"""
+                            if include_list != "":
+                                package_body += f"""
         {include_list}
+                            """
+                            if output_constants:
+                                package_body += f"""
         {output_constants}
-        /* todo */
+                            """
+                            package_body += f"""
     BEGIN
-        /* todo */ 
+        -- TODO : Implement method body
         RETURN NULL;   
     END {method_name};
                             """
@@ -200,14 +205,41 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
     PROCEDURE {method_name}({formal_spec_value}) ;        
                                                     """
                             package_body += f"""
-    PROCEDURE {method_name}({formal_spec_value}) IS  
-        {include_list}\n
+    PROCEDURE {method_name}({formal_spec_value}) IS"""
+                            if include_list != "":
+                                package_body += f"""
+        {include_list}
+                            """
+                            if output_constants:
+                                package_body += f"""
         {output_constants}
-        /* todo */
+                            """
+                            package_body += f"""
     BEGIN
-        /* todo */  
+        -- TODO : Implement method body
     END {method_name};
                             """
+                    elif return_type_value == "":
+                        package_content += f"""
+                        {formatted_description}                        
+    PROCEDURE {method_name}({formal_spec_value}) ;        
+                                          """
+                        package_body += f"""
+    PROCEDURE {method_name}({formal_spec_value}) IS"""
+                        if include_list != "":
+                            package_body += f"""
+    {include_list}
+                                           """
+                        if output_constants:
+                            package_body += f"""
+    {output_constants}
+                                                """
+                        package_body += f"""
+    BEGIN
+    -- TODO : Implement method body
+    END {method_name};
+                                                """
+
 
                 #### end for method
 
@@ -267,9 +299,8 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                     package_body += f"""
     FUNCTION {query_name}({formal_spec_query_value})  RETURN SYS_REFCURSOR IS
 
-    /* todo */
     BEGIN
-    /* todo */
+        -- TODO : Implement method body
         RETURN NULL;    
     END {query_name};
                         """
@@ -307,7 +338,11 @@ def convert_query_parameter(input_str):
                     var_type_value = "VARCHAR2(4000)"
 
             # Tạo định dạng đầu ra cho tham số
-            output_var = f"{var_name} {var_type_value}"
+            if element == elements[-1]:
+                output_var = f"{var_name} {var_type_value}"
+            else:
+                output_var = f"{var_name} {var_type_value},"
+
             output_elements.append(output_var)
 
         elif len(parts) == 3:
@@ -463,7 +498,7 @@ def start_convert_mac():
                 routine_cdata = content.getElementsByTagName("Routine")[0].firstChild.data
                 methods = re.findall(pattern_method, routine_cdata)
 
-                pattern_method_javadoc = r'(\/{2,}\s*(.*?)\s*<BR>[\s\S]*?)([\w.]+)\(([^)]+)\)\s*(Public|Private|public|private|PUBLIC|PRIVATE|)\s*{([\s\S]*?)'
+                pattern_method_javadoc = r'(\/{2,}\s*(.*?)\s*<BR>[\s\S]*?)([\w.]+)\(([^)【】]+)\)\s*(Public|Private|public|private|PUBLIC|PRIVATE|)\s*{([\s\S]*?)'
                 methods_javadoc = re.findall(pattern_method_javadoc, routine_cdata)
 
                 pattern_include = r'#Include\s+(\S+)'
@@ -474,7 +509,7 @@ def start_convert_mac():
                     include_list += """/*******************************************************
      *  DECLARE INCLUDE LIST: Where constants should be
      *******************************************************/                   
-     INCLUDE_LIST STRING_ARRAY := STRING_ARRAY("""
+    INCLUDE_LIST STRING_ARRAY := STRING_ARRAY("""
                     pattern_storage = '\.storage'
                     for include in includes:
                         if not re.search(pattern_storage, include, re.IGNORECASE):
@@ -489,20 +524,20 @@ def start_convert_mac():
     /*******************************************************
      *  DECLARE INCLUDE LIST: Where constants should be
      *******************************************************/                   
-     INCLUDE_LIST STRING_ARRAY := STRING_ARRAY();"""
+    INCLUDE_LIST STRING_ARRAY := STRING_ARRAY();"""
 
                 pattern_constant = r'#Define\s+(\w+)\s+"?([^"\n]+)"?\s*'
                 # Sử dụng re.findall để tìm tất cả các #Define trong đoạn văn bản
                 find_defines = re.findall(pattern_constant, routine_cdata)
                 output_constants = """
-     /*******************************************************
+    /*******************************************************
      *  DECLARE CONSTANTS: Constants using in this package
      *******************************************************/  
                 """
                 if find_defines:
                     for name, value in find_defines:
                         output_constants += f"""                 
-     {name} VARCHAR2(150) := '{value}';"""
+    {name} VARCHAR2(150) := '{value}';"""
 
                 package_header = f"CREATE OR REPLACE PACKAGE {file_convert_name} AS "
                 package_content = f"""
@@ -510,18 +545,18 @@ def start_convert_mac():
     /*****************************************************
      *  PACKAGE NAME: Use for replacement $ZNAME in Caché
      *****************************************************/
-     PACKAGE_NAME VARCHAR2(150) := '{file_convert_name}'; """
-                if include_list:
+    PACKAGE_NAME VARCHAR2(150) := '{file_convert_name}'; """
+                if include_list != "":
                     package_content += f"""
-     {include_list}
+    {include_list}
                     """
                 if output_constants:
                     package_content += f"""
-     {output_constants}
+    {output_constants}
                     """
 
                 package_content += f"""
-     /*******************************************************
+    /*******************************************************
      *  DECLARE METHODS: Declare function or procedure here
      *******************************************************/
                 """
@@ -565,16 +600,16 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                     method_comment_mac = method_comment_mac.replace("<BR>", "").replace("///", "")
                     method_content = "FUNCTION " + method_name + "(" + output_params + ") " + method_access
                     package_content += f"""
-     {method_comment_mac}
-     {method_content};       
+    {method_comment_mac}
+    {method_content};       
                                     """
                     package_body += f"""
-     {method_content}IS   
-     /* todo */
-     BEGIN
-     /* todo */ 
+    {method_content}IS   
+    /* todo */
+    BEGIN
+    /* todo */ 
         RETURN NULL;  
-     END {method_name};
+    END {method_name};
                 """
 
                 package_end = f"""
@@ -849,7 +884,7 @@ def process_code(source_code):
             continue
         # if (re.findall(pattern3, line.strip())) and (("if".upper or "else".upper() or "elseif") not in line.upper()):
         if re.findall(pattern3, line.strip(), flags=re.IGNORECASE):
-            line = re.sub(pattern3, r'', line.strip(), flags=re.IGNORECASE)
+            line = re.sub(pattern3, r'--\2', line.strip(), flags=re.IGNORECASE)
             processed_code.append(line)
             continue
         if ("If ".upper() in line.upper()) and ("ElseIf".upper() not in line.upper()):
@@ -959,7 +994,7 @@ def checkLine(source_code):
         else:
             line_base += line + "\n"
 
-    if(index_line < len(lines)):
+    if (index_line < len(lines)):
         checkLine(line_base)
 
     return line_base
@@ -992,7 +1027,7 @@ def checkFor(source_code):
                 if count > 0:
                     for x in range(count):
                         print(" x = " + str(x))
-                        if x < count-1:
+                        if x < count - 1:
                             pattern_for += pattern_for_loop
                         else:
                             pattern_for += pattern_for_loop_end
@@ -1001,7 +1036,7 @@ def checkFor(source_code):
                 matches_pattern = re.findall(pattern_for, source_code.strip(), flags=re.IGNORECASE)
                 if matches_pattern:
                     lines_for = re.sub(pattern_for, r'FOR \2 IN \3 .. \5 LOOP \n\t   \6\nEND LOOP\n', lines_for,
-                                         flags=re.IGNORECASE)
+                                       flags=re.IGNORECASE)
                     for j in range(i + 1, len(lines)):
                         line_to_end += "\n" + lines[j]  # Thêm các dòng tiếp theo vào linenew
                     lines_for += "\n" + line_to_end
@@ -1026,5 +1061,4 @@ def checkTryCatch(source_code):
 def checkDoWhile(source_code):
     print("checkDoWhile")
 
-
-#result = checkLine(source_code)
+# result = checkLine(source_code)

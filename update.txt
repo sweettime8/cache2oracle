@@ -61,5 +61,13 @@
 7. FIX lỗi Khai báo dư function vì sử dụng code đã comment
 8. Fix lỗi thiếu function khi thiếu public|private
 
+------------------  update version_20230922 22/9/2023 ---------------------------
+1 . javadoc cho file mac
+2 . remove TABLE_NAME_REPO
 
-7 . 8 - chưa làm ( file mac thiêu javadoc)
+------------------  update version_20230922 25/9/2023 ---------------------------
+1 . Fix lỗi space cls, mac
+2 . Fix lỗi thiếu dấu , trong TYPE .... IS RECORD ( )
+3 . trong BEGIN END đổi sang comment --TODO: Implement method body here
+4 . Fix lỗi gen nhầm function trong file mac
+5 . Fix lỗi declare Method[2] không hoạt động
