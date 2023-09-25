@@ -147,7 +147,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                             include_list += f"""
         -- Declare include list to know where constants should be                    
         INCLUDE_LIST STRING_ARRAY := STRING_ARRAY("""
-                            pattern_storage = '\.storage'
+                            pattern_storage = '\.(s|S)torage'
                             for include in includes:
                                 if not re.search(pattern_storage, include):
                                     include_list += f"""'{include}',"""
@@ -178,7 +178,15 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
 
                         if check_match and return_type_value != "":
                             # là function
-                            package_content += f"""{formatted_description}
+                            package_content += f"""{formatted_description}"""
+                            if formal_spec_value == "":
+                                package_content += f"""
+    FUNCTION {method_name} RETURN {return_type_value};   
+                                                """
+                                package_body += f"""
+    FUNCTION {method_name} RETURN {return_type_value} IS"""
+                            else:
+                                package_content += f"""
     FUNCTION {method_name}({formal_spec_value}) RETURN {return_type_value};    
                             """
                             package_body += f"""
@@ -238,7 +246,6 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
     -- TODO : Implement method body
     END {method_name};
                                                 """
-
 
                 #### end for method
 
@@ -492,7 +499,7 @@ def start_convert_mac():
                 if not isExist:
                     os.makedirs("MAC_RESULT")
 
-                pattern_method = r'([\w.]+)\(([^)]*)(?<!\/\/)\)\s*(Public|Private|public|private|PUBLIC|PRIVATE|)\n\{'
+                pattern_method = r'\n([\w.]+)\(([^)]*)(?<!\/\/)\)\s*(Public|Private|public|private|PUBLIC|PRIVATE|)\s*{([\s\S]*?)'
                 # Tìm tag <Routine> và lấy nội dung CDATA bên trong
                 routine_cdata = content.getElementsByTagName("Routine")[0].firstChild.data
                 methods = re.findall(pattern_method, routine_cdata)
@@ -571,26 +578,35 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
      *  IMPLEMENTATION: Implement logic here
      *******************************************************/            
                                             """
-
+                # mrd methods -> methods ALL and not javadoc
+                method_exist_javadoc_name = []
                 for method in methods_javadoc:
+                    method_exist_javadoc_name.append(method[2])
                     method_comment = method[0]
                     method_name = method[2]
                     method_params = method[3]
-                    # method_access = method[2]
                     method_access = "RETURN VARCHAR2"
                     # Tách các phần từ trong chuỗi đầu vào
-                    input_list = method_params.split(', ')
+                    input_list = method_params.split(',')
 
                     output_list = []
                     # Lặp qua danh sách các phần tử và thêm phần tử chuyển đổi vào danh sách mới
                     for item in input_list:
-                        if "=" in item:
-                            # mrd pro
-                            item = item.replace("=", "DEFAULT")
-                        if "po" in item:
-                            output_list.append(f'{item} OUT VARCHAR2')
+                        item = item.strip()
+                        if '=' in item:
+                            param_name = item.split('=')[0]
+                            param_default = " DEFAULT" + item.split('=')[1].replace("\"", '\'')
+                            if "po" in item:
+                                parameter_output = param_name + " OUT VARCHAR2" + param_default
+                                output_list.append(f'{parameter_output}')
+                            else:
+                                parameter_output = param_name + "IN VARCHAR2" + param_default
+                                output_list.append(f'{parameter_output}')
                         else:
-                            output_list.append(f'{item} IN VARCHAR2')
+                            if "po" in item:
+                                output_list.append(f'{item} OUT VARCHAR2')
+                            else:
+                                output_list.append(f'{item} IN VARCHAR2')
 
                     output_params = ', '.join(output_list)
                     # mrd
@@ -608,11 +624,10 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
     {method_content};       
                                     """
                     package_body += f"""
-    {method_content}IS   
-    /* todo */
+    {method_content} IS   
     BEGIN
-    /* todo */ 
-        RETURN NULL;  
+    -- TODO : Implement method body
+    RETURN NULL;  
     END {method_name};
                 """
 
@@ -621,6 +636,63 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
 END {file_convert_name};
 /
                 """
+
+                # end for method_javadoc
+                # duyệt thêm các method mà không có javadoc
+                for method in methods:
+                    method_name1 = method[0]
+                    method_params1 = method[1]
+                    method_access1 = "RETURN VARCHAR2"
+                    if method_name1 not in method_exist_javadoc_name:
+                        # Tách các phần từ trong chuỗi đầu vào
+                        input_list1 = method_params1.split(',')
+                        output_list1 = []
+                        # Lặp qua danh sách các phần tử và thêm phần tử chuyển đổi vào danh sách mới
+
+                        for item in input_list1:
+                            item = item.strip()
+                            if '=' in item:
+                                param_name = item.split('=')[0]
+                                param_default = " DEFAULT" + item.split('=')[1].replace("\"", '\'')
+                                if "po" in item:
+                                    parameter_output = param_name + " OUT VARCHAR2" + param_default
+                                    output_list1.append(f'{parameter_output}')
+                                else:
+                                    parameter_output = param_name + "IN VARCHAR2" + param_default
+                                    output_list1.append(f'{parameter_output}')
+                            elif item == '':
+                                print("function không có param")
+                            else:
+                                if "po" in item:
+                                    output_list1.append(f'{item} OUT VARCHAR2')
+                                else:
+                                    output_list1.append(f'{item} IN VARCHAR2')
+
+                        output_params = ', '.join(output_list1)
+                        if output_params == '':
+                            method_content1 = "FUNCTION " + method_name1 + " " + method_access1
+                            package_content += f"""
+    {method_content1};       
+                                                                   """
+                            package_body += f"""
+    {method_content1} IS   
+    BEGIN
+    -- TODO : Implement method body
+    RETURN NULL;  
+    END {method_name1};
+                                                         """
+                        else:
+                            method_content1 = "FUNCTION " + method_name1 + "(" + output_params + ") " + method_access1
+                            package_content += f"""
+    {method_content1};       
+                                           """
+                        package_body += f"""
+    {method_content1} IS   
+    BEGIN
+    -- TODO : Implement method body
+    RETURN NULL;  
+    END {method_name1};
+                                 """
 
                 file_content = package_header + package_content + package_body + package_end
 

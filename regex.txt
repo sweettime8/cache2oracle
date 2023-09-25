@@ -11,3 +11,4 @@
 [^)]*       : khớp với bất kỳ ký tự nào trừ dấu đóng ngoặc ")" và * cho phép khớp với 0 hoặc nhiều ký tự
 
 ([\s\S]*?)\} : mọi ký tự cho đến khi gặp }
+^            : bắt đầu từ đầu dòng
