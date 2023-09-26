@@ -74,10 +74,14 @@
 6 . Fix space cuối file
 7 . Fix đọc 300 file
 8 . Fix Default (bên dự án check thêm) hiện đang để = sang DEFAULT
-
 9 . Fix Default : variable IN/OUT DATATYPE DEFAULT 'value'
 10. Fix không migrate include .Storage ( S viết hoa)
 11. Fix case nếu k có param truyền vào thì bỏ ()
 12. File Mac sửa to do, fix VARCHAR2 IS dính nhau
 13. Fix thiếu dataType cho param do phẩy sai
 14. Fix thiếu function do ko bắt được function k có javadoc
+
+------------------  update version_20230926 ---------------------------
+1 . Fix case nếu k có param truyền vào thì bỏ () (miss for query)
+2 . Fix param ... -> STRING_ARRAY
+3 . FIX DEFAULT IN PARAM giữ nguyên, OUT PARAM -> chuyển về khai báo trong body paramName := value;

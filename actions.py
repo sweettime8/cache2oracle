@@ -1,3 +1,5 @@
+from enum import member
+
 from flask import Blueprint, request, render_template, redirect, url_for, flash, Response, jsonify
 import re
 import os
@@ -134,6 +136,32 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                         return_type_value = convert_data_type_file(return_type.firstChild.nodeValue)
                     else:
                         return_type_value = ""
+                    if method_name == "TanaEnd":
+                        print("mrd")
+                    # mrd check lại formal_spec_value ( đối với OUT Có default thì khai báo trong begin, OUT không được có default value)
+                    array_formal_spec_value = formal_spec_value.split(",")
+                    array_new = []
+                    if array_formal_spec_value:
+                        array_default_value_method = []
+                        for item_new_value in array_formal_spec_value:
+                            if ("OUT" in item_new_value) and ("DEFAULT" in item_new_value):
+                                # sửa lại format in ra
+                                item_out_value = item_new_value.split("DEFAULT")[0]
+                                # lưu trữ lại param và default value
+                                spec_param_name = item_new_value.split("OUT")[0]
+                                default_value = item_new_value.split("DEFAULT")[1]
+                                if default_value == "''":
+                                    default_value = "NULL"
+                                array_default_value_method.append((spec_param_name, default_value))
+
+                            else:
+                                item_out_value = item_new_value
+
+                            array_new.append(item_out_value)
+
+                        # Kết hợp các phần tử lại với nhau và ngăn cách bằng dấu phẩy
+                        output_str_formal_spec_value = ', '.join(array_new)
+                        formal_spec_value = output_str_formal_spec_value
 
                     # Đọc <Implementation> trong phần tử <Method> hiện tại
                     imp_value = methods[i].getElementsByTagName("Implementation").item(0)
@@ -199,20 +227,47 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                                 package_body += f"""
         {output_constants}
                             """
+
+                            output_default_value_method = ""
+                            for item_set_value_method in array_default_value_method:
+                                item_name = item_set_value_method[0]
+                                item_value = item_set_value_method[1]
+                                output_default_value_method += item_name + ":=" + item_value + ";\n"
+
                             package_body += f"""
     BEGIN
+                            """
+                            if output_default_value_method == "":
+                                package_body += f"""
         -- TODO : Implement method body
         RETURN NULL;   
     END {method_name};
                             """
+                            else:
+                                package_body += f"""
+        {output_default_value_method}
+        -- TODO : Implement method body
+        RETURN NULL;   
+    END {method_name};          
+                                """
                         else:
                             # là procedure
-                            package_content += f"""
+                            # check if formal_spec_value == "" thi bo dau ()
+                            if formal_spec_value != "":
+                                package_content += f"""
     {formatted_description}                        
     PROCEDURE {method_name}({formal_spec_value});        
                                                     """
-                            package_body += f"""
+                                package_body += f"""
     PROCEDURE {method_name}({formal_spec_value}) IS"""
+                            else:
+                                package_content += f"""
+    {formatted_description}                        
+    PROCEDURE {method_name};        
+                                                 """
+                                package_body += f"""
+    PROCEDURE {method_name} IS"""
+
                             if include_list != "":
                                 package_body += f"""
         {include_list}
@@ -227,12 +282,21 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
     END {method_name};
                             """
                     elif return_type_value == "":
-                        package_content += f"""
+                        if formal_spec_value != "":
+                            package_content += f"""
                         {formatted_description}                        
     PROCEDURE {method_name}({formal_spec_value}) ;        
                                           """
-                        package_body += f"""
+                            package_body += f"""
     PROCEDURE {method_name}({formal_spec_value}) IS"""
+                        else:
+                            package_content += f"""
+                        {formatted_description}                        
+    PROCEDURE {method_name};        
+                                              """
+                            package_body += f"""
+    PROCEDURE {method_name} IS"""
+
                         if include_list != "":
                             package_body += f"""
     {include_list}
@@ -295,14 +359,14 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
          {parameter_query_query_value}
     ) ;
                     """
-
-                    package_content += f"""
+                    if formal_spec_query_value != "":
+                        package_content += f"""
     {formatted_description_query}
     {declare_record_query}
     FUNCTION {query_name}({formal_spec_query_value}) RETURN SYS_REFCURSOR;
                         """
 
-                    package_body += f"""
+                        package_body += f"""
     FUNCTION {query_name}({formal_spec_query_value})  RETURN SYS_REFCURSOR IS
 
     BEGIN
@@ -310,6 +374,21 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
         RETURN NULL;    
     END {query_name};
                         """
+                    else:
+                        package_content += f"""
+    {formatted_description_query}
+    {declare_record_query}
+    FUNCTION {query_name} RETURN SYS_REFCURSOR;
+                                            """
+
+                        package_body += f"""
+    FUNCTION {query_name} RETURN SYS_REFCURSOR IS
+
+    BEGIN
+    -- TODO : Implement method body
+    RETURN NULL;    
+    END {query_name};
+                                            """
 
                 file_content = package_header + package_content + package_body + package_end
 
@@ -386,7 +465,10 @@ def convert_formal_spec(input_str):
             var_name, var_type = parts
             if '=' in var_type:
                 var_type_value = convert_data_type_file(var_type.split('=')[0])
-                var_type_value += " DEFAULT " + var_type.split('=')[1]
+                default_value = var_type.split('=')[1].replace("\"", "\'")
+                if default_value == "''":
+                    default_value = "NULL"
+                var_type_value += " DEFAULT " + default_value
             else:
                 var_type_value = convert_data_type_file(var_type)
             # Xác định kiểu của tham số đầu ra
@@ -590,23 +672,56 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                     input_list = method_params.split(',')
 
                     output_list = []
+                    array_default_value = []
                     # Lặp qua danh sách các phần tử và thêm phần tử chuyển đổi vào danh sách mới
                     for item in input_list:
                         item = item.strip()
+                        check_default_out_param = False
                         if '=' in item:
-                            param_name = item.split('=')[0]
-                            param_default = " DEFAULT" + item.split('=')[1].replace("\"", '\'')
-                            if "po" in item:
-                                parameter_output = param_name + " OUT VARCHAR2" + param_default
-                                output_list.append(f'{parameter_output}')
+                            if "..." in item:
+                                item = item.replace("...", "")
+                                param_name = item.split('=')[0].strip()
+                                default_value = item.split('=')[1].strip()
+                                if default_value == "":
+                                    default_value = "NULL"
+
+                                if "po" in item:
+                                    check_default_out_param = True
+                                    parameter_output = param_name + " OUT STRING_ARRAY"
+                                    output_list.append(f'{parameter_output}')
+                                else:
+                                    check_default_out_param = True
+                                    param_default = " DEFAULT" + default_value.replace("\"", '\'')
+                                    parameter_output = param_name + " IN STRING_ARRAY " + param_default
+                                    output_list.append(f'{parameter_output}')
                             else:
-                                parameter_output = param_name + "IN VARCHAR2" + param_default
-                                output_list.append(f'{parameter_output}')
+                                param_name = item.split('=')[0].strip()
+                                default_value = item.split('=')[1].replace("\"", '\'').strip()
+                                if default_value == "\'\'":
+                                    default_value = "NULL"
+
+                                param_default = "DEFAULT " + default_value.strip()
+                                if "po" in item:
+                                    # mrd nho xoa param default
+                                    parameter_output = param_name + " OUT VARCHAR2"
+                                    array_default_value.append((param_name, default_value))
+                                    output_list.append(f'{parameter_output}')
+                                else:
+                                    parameter_output = param_name + " IN VARCHAR2 " + param_default
+                                    output_list.append(f'{parameter_output}')
+
                         else:
-                            if "po" in item:
-                                output_list.append(f'{item} OUT VARCHAR2')
+                            if "..." in item:
+                                item = item.replace("...", "")
+                                if "po" in item:
+                                    output_list.append(f'{item} OUT STRING_ARRAY')
+                                else:
+                                    output_list.append(f'{item} IN STRING_ARRAY')
                             else:
-                                output_list.append(f'{item} IN VARCHAR2')
+                                if "po" in item:
+                                    output_list.append(f'{item} OUT VARCHAR2')
+                                else:
+                                    output_list.append(f'{item} IN VARCHAR2')
 
                     output_params = ', '.join(output_list)
                     # mrd
@@ -623,14 +738,28 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
     {method_comment_mac}
     {method_content};       
                                     """
+                    output_default_value = ""
+                    for item_set_value in array_default_value:
+                        item_name = item_set_value[0]
+                        item_value = item_set_value[1]
+                        output_default_value += item_name + " := " + item_value + ";\n"
+
                     package_body += f"""
     {method_content} IS   
-    BEGIN
+    BEGIN"""
+                    if output_default_value == "":
+                        package_body += f"""
     -- TODO : Implement method body
     RETURN NULL;  
     END {method_name};
                 """
-
+                    else:
+                        package_body += f"""
+        {output_default_value}
+    -- TODO : Implement method body
+    RETURN NULL;  
+    END {method_name};
+                                    """
                 package_end = f"""
      ----------------- END IMPLEMENTATION -------------------
 END {file_convert_name};
