@@ -85,3 +85,7 @@
 1 . Fix case nếu k có param truyền vào thì bỏ () (miss for query)
 2 . Fix param ... -> STRING_ARRAY
 3 . FIX DEFAULT IN PARAM giữ nguyên, OUT PARAM -> chuyển về khai báo trong body paramName := value;
+
+4 . fix lôi cls ()
+5 . Fix lỗi comment bị thụt tab
+6 . Fix lỗi INCLUDE String_ARRAY); cls

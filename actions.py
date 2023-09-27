@@ -136,8 +136,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                         return_type_value = convert_data_type_file(return_type.firstChild.nodeValue)
                     else:
                         return_type_value = ""
-                    if method_name == "TanaEnd":
-                        print("mrd")
+
                     # mrd check lại formal_spec_value ( đối với OUT Có default thì khai báo trong begin, OUT không được có default value)
                     array_formal_spec_value = formal_spec_value.split(",")
                     array_new = []
@@ -180,7 +179,10 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                                 if not re.search(pattern_storage, include):
                                     include_list += f"""'{include}',"""
                             # Loại bỏ dấu "," cuối cùng và thêm dấu ");"
-                            include_list = include_list[:-1] + ');'
+                            if include_list.endswith(","):
+                                include_list = include_list[:-1] + ');'
+                            else:
+                                include_list += ");"
 
                         pattern_constant = r'#Define\s+(\w+)\s+"?([^"\n]+)"?\s*'
                         # Sử dụng re.findall để tìm tất cả các #Define trong đoạn văn bản
@@ -206,7 +208,8 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
 
                         if check_match and return_type_value != "":
                             # là function
-                            package_content += f"""{formatted_description}"""
+                            package_content += f"""
+    {formatted_description}"""
                             if formal_spec_value == "":
                                 package_content += f"""
     FUNCTION {method_name} RETURN {return_type_value};   
@@ -217,7 +220,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                                 package_content += f"""
     FUNCTION {method_name}({formal_spec_value}) RETURN {return_type_value};    
                             """
-                            package_body += f"""
+                                package_body += f"""
     FUNCTION {method_name}({formal_spec_value}) RETURN {return_type_value} IS"""
                             if include_list != "":
                                 package_body += f"""
@@ -433,8 +436,11 @@ def convert_query_parameter(input_str):
         elif len(parts) == 3:
             var_name, var_type, var_comment = parts
             if '=' in var_type:
-                var_type_value = convert_data_type_file(var_type.split('=')[0])
-                var_type_value += " DEFAULT " + var_type.split('=')[1]
+                if "SCALE".upper() in var_type.upper():
+                    var_type_value = convert_data_type_file(var_type.split('(')[0])
+                else:
+                    var_type_value = convert_data_type_file(var_type.split('=')[0])
+                    var_type_value += " DEFAULT " + var_type.split('=')[1]
             else:
                 var_type_value = convert_data_type_file(var_type)
                 if var_type_value == "VARCHAR2":
@@ -702,7 +708,6 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
 
                                 param_default = "DEFAULT " + default_value.strip()
                                 if "po" in item:
-                                    # mrd nho xoa param default
                                     parameter_output = param_name + " OUT VARCHAR2"
                                     array_default_value.append((param_name, default_value))
                                     output_list.append(f'{parameter_output}')
@@ -724,7 +729,6 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                                     output_list.append(f'{item} IN VARCHAR2')
 
                     output_params = ', '.join(output_list)
-                    # mrd
                     # chuyển đổi comment :
                     method_comment_mac = "/**\n"
                     lines = method_comment.split('\n')
@@ -781,8 +785,10 @@ END {file_convert_name};
                         for item in input_list1:
                             item = item.strip()
                             if '=' in item:
+                                if "..." in item:
+                                    item = item.replace("...", "")
                                 param_name = item.split('=')[0]
-                                param_default = " DEFAULT" + item.split('=')[1].replace("\"", '\'')
+                                param_default = " DEFAULT " + item.split('=')[1].replace("\"", '\'')
                                 if "po" in item:
                                     parameter_output = param_name + " OUT VARCHAR2" + param_default
                                     output_list1.append(f'{parameter_output}')
@@ -792,37 +798,87 @@ END {file_convert_name};
                             elif item == '':
                                 print("function không có param")
                             else:
+                                if "..." in item:
+                                    item = item.replace("...", "")
                                 if "po" in item:
                                     output_list1.append(f'{item} OUT VARCHAR2')
                                 else:
                                     output_list1.append(f'{item} IN VARCHAR2')
 
                         output_params = ', '.join(output_list1)
+                        array_re_format_param = output_params.split(",")
+                        array_new = []
+                        if array_re_format_param:
+                            array_default_value_method = []
+                            for item_new_value in array_re_format_param:
+                                if ("OUT" in item_new_value) and ("DEFAULT" in item_new_value):
+                                    # sửa lại format in ra
+                                    item_out_value = item_new_value.split("DEFAULT")[0]
+                                    # lưu trữ lại param và default value
+                                    new_param_name = item_new_value.split("OUT")[0]
+                                    default_value = item_new_value.split("DEFAULT")[1]
+                                    if "''" in default_value :
+                                        default_value = "NULL"
+                                    array_default_value_method.append((new_param_name, default_value))
+                                else:
+                                    item_out_value = item_new_value
+                                array_new.append(item_out_value)
+
+                            # Kết hợp các phần tử lại với nhau và ngăn cách bằng dấu phẩy
+                            output_str_new_param_value = ','.join(array_new)
+                            output_params = output_str_new_param_value #mrd
+
+                        output_default_value_method_mac = ""
+                        for item_set_value_method in array_default_value_method:
+                            item_name = item_set_value_method[0]
+                            item_value = item_set_value_method[1]
+                            output_default_value_method_mac += item_name + ":= " + item_value + ";\n"
+
                         if output_params == '':
                             method_content1 = "FUNCTION " + method_name1 + " " + method_access1
                             package_content += f"""
     {method_content1};       
-                                                                   """
+                                                """
                             package_body += f"""
     {method_content1} IS   
     BEGIN
+                                            """
+                            if output_default_value_method_mac == "":
+                                package_body += f"""
     -- TODO : Implement method body
     RETURN NULL;  
     END {method_name1};
-                                                         """
+                                                 """
+                            else:
+                                package_body += f"""
+        {output_default_value_method_mac}
+        -- TODO : Implement method body
+        RETURN NULL;  
+    END {method_name1};
+                                                """
+
                         else:
                             method_content1 = "FUNCTION " + method_name1 + "(" + output_params + ") " + method_access1
                             package_content += f"""
     {method_content1};       
-                                           """
+                                               """
                         package_body += f"""
     {method_content1} IS   
     BEGIN
-    -- TODO : Implement method body
-    RETURN NULL;  
+                                        """
+                        if output_default_value_method_mac == "":
+                            package_body += f"""            
+        -- TODO : Implement method body
+        RETURN NULL;  
     END {method_name1};
-                                 """
-
+                                            """
+                        else:
+                            package_body += f"""     
+        {output_default_value_method_mac}                           
+        -- TODO : Implement method body
+        RETURN NULL;  
+    END {method_name1};
+                                            """
                 file_content = package_header + package_content + package_body + package_end
 
                 with open(file_convert, "w", encoding="utf-8") as sql_file:
