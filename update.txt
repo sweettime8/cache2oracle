@@ -89,3 +89,8 @@
 4 . fix lôi cls ()
 5 . Fix lỗi comment bị thụt tab
 6 . Fix lỗi INCLUDE String_ARRAY); cls
+
+------------------  update version_20230927 ---------------------------
+1 . fix xử lý không remove comment code #;  trong javadoc
+2 . fix IN dính liền với tên param , Default '' = NULL
+3 . Javadoc xóa space, Dư space chỗ type pattern query

@@ -159,7 +159,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                             array_new.append(item_out_value)
 
                         # Kết hợp các phần tử lại với nhau và ngăn cách bằng dấu phẩy
-                        output_str_formal_spec_value = ', '.join(array_new)
+                        output_str_formal_spec_value = ','.join(array_new)
                         formal_spec_value = output_str_formal_spec_value
 
                     # Đọc <Implementation> trong phần tử <Method> hiện tại
@@ -330,7 +330,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                         for line in lines:
                             if line.strip() != "":
                                 formatted_description_query += f"     * {line.strip()}\n"
-                        formatted_description_query += "     **/"
+                        formatted_description_query += "    **/"
                         formatted_description_query = formatted_description_query.replace("<BR>", "")
                     else:
                         formatted_description_query = ""
@@ -360,7 +360,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                     declare_record_query += f"""
     TYPE record{query_name}Tmp IS RECORD (
          {parameter_query_query_value}
-    ) ;
+    );
                     """
                     if formal_spec_query_value != "":
                         package_content += f"""
@@ -590,6 +590,22 @@ def start_convert_mac():
                 pattern_method = r'\n([\w.]+)\(([^)]*)(?<!\/\/)\)\s*(Public|Private|public|private|PUBLIC|PRIVATE|)\s*{([\s\S]*?)'
                 # Tìm tag <Routine> và lấy nội dung CDATA bên trong
                 routine_cdata = content.getElementsByTagName("Routine")[0].firstChild.data
+
+                #trước khi xử lý remove dòng có comment #;
+                code_lines = routine_cdata.split('\n')
+                pattern_check_comment = r'^\s*\#\;'
+                processed_code = []
+                for line in code_lines:
+                    if re.findall(pattern_check_comment, line.strip()):
+                        continue
+                    else :
+                        processed_code.append(line)
+
+                result_code_after_format = ""
+                for line in processed_code:
+                    result_code_after_format += line + "\n"
+
+                routine_cdata = result_code_after_format
                 methods = re.findall(pattern_method, routine_cdata)
 
                 pattern_method_javadoc = r'(\/{2,}\s*(.*?)\s*<BR>[\s\S]*?)([\w.]+)\(([^)【】]+)\)\s*(Public|Private|public|private|PUBLIC|PRIVATE|)\s*{([\s\S]*?)'
@@ -687,13 +703,18 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                             if "..." in item:
                                 item = item.replace("...", "")
                                 param_name = item.split('=')[0].strip()
-                                default_value = item.split('=')[1].strip()
-                                if default_value == "":
+                                default_value = item.split('=')[1].replace("\"", '\'').strip()
+                                if default_value == "\'\'":
                                     default_value = "NULL"
 
                                 if "po" in item:
                                     check_default_out_param = True
                                     parameter_output = param_name + " OUT STRING_ARRAY"
+                                    output_list.append(f'{parameter_output}')
+                                elif "pInput" in item:
+                                    check_default_out_param = True
+                                    param_default = " DEFAULT" + default_value.replace("\"", '\'')
+                                    parameter_output = param_name + " IN STRING_ARRAY " + param_default
                                     output_list.append(f'{parameter_output}')
                                 else:
                                     check_default_out_param = True
@@ -711,6 +732,9 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                                     parameter_output = param_name + " OUT VARCHAR2"
                                     array_default_value.append((param_name, default_value))
                                     output_list.append(f'{parameter_output}')
+                                elif "pInput" in item:
+                                    parameter_output = param_name + " IN VARCHAR2 " + param_default
+                                    output_list.append(f'{parameter_output}')
                                 else:
                                     parameter_output = param_name + " IN VARCHAR2 " + param_default
                                     output_list.append(f'{parameter_output}')
@@ -725,6 +749,8 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                             else:
                                 if "po" in item:
                                     output_list.append(f'{item} OUT VARCHAR2')
+                                elif "pInput" in item:
+                                    output_list.append(f'{item} IN VARCHAR2')
                                 else:
                                     output_list.append(f'{item} IN VARCHAR2')
 
@@ -735,7 +761,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                     for line in lines:
                         if line.strip() != "":
                             method_comment_mac += f"     * {line.strip()}\n"
-                    method_comment_mac += "     **/"
+                    method_comment_mac += "    **/"
                     method_comment_mac = method_comment_mac.replace("<BR>", "").replace("///", "")
                     method_content = "FUNCTION " + method_name + "(" + output_params + ") " + method_access
                     package_content += f"""
@@ -774,6 +800,8 @@ END {file_convert_name};
                 # duyệt thêm các method mà không có javadoc
                 for method in methods:
                     method_name1 = method[0]
+                    if method_name1 == "WriteTempData":
+                        print("m,rd")
                     method_params1 = method[1]
                     method_access1 = "RETURN VARCHAR2"
                     if method_name1 not in method_exist_javadoc_name:
@@ -788,12 +816,14 @@ END {file_convert_name};
                                 if "..." in item:
                                     item = item.replace("...", "")
                                 param_name = item.split('=')[0]
-                                param_default = " DEFAULT " + item.split('=')[1].replace("\"", '\'')
+                                param_default = item.split('=')[1].replace("\"", '\'')
                                 if "po" in item:
                                     parameter_output = param_name + " OUT VARCHAR2" + param_default
                                     output_list1.append(f'{parameter_output}')
                                 else:
-                                    parameter_output = param_name + "IN VARCHAR2" + param_default
+                                    if "''" in param_default:
+                                        param_default = "NULL"
+                                    parameter_output = param_name + " IN VARCHAR2" + " DEFAULT " + param_default
                                     output_list1.append(f'{parameter_output}')
                             elif item == '':
                                 print("function không có param")
