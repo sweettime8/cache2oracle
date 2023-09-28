@@ -37,6 +37,23 @@ def convert_code():
     return render_template('convert-code.html')
 
 
+oracle_keywords = [
+    'ACCESS', 'ADD', 'ALL', 'ALTER', 'AND', 'ANY', 'AS', 'ASC', 'AUDIT', 'BETWEEN',
+    'BY', 'CHAR', 'CHECK', 'CLUSTER', 'COLUMN', 'COMMENT', 'COMPRESS', 'CONNECT',
+    'CREATE', 'CURRENT', 'DATE', 'DECIMAL', 'DEFAULT', 'DELETE', 'DESC', 'DISTINCT',
+    'DROP', 'ELSE', 'EXCLUSIVE', 'EXISTS', 'FILE', 'FLOAT', 'FOR', 'FROM', 'GRANT',
+    'GROUP', 'HAVING', 'IDENTIFIED', 'IMMEDIATE', 'IN', 'INCREMENT', 'INDEX', 'INITIAL',
+    'INSERT', 'INTEGER', 'INTERSECT', 'INTO', 'IS', 'LEVEL', 'LIKE', 'LOCK', 'LONG',
+    'MAXEXTENTS', 'MINUS', 'MLSLABEL', 'MODE', 'MODIFY', 'NOAUDIT', 'NOCOMPRESS',
+    'NOT', 'NOWAIT', 'NULL', 'NUMBER', 'OF', 'OFFLINE', 'ON', 'ONLINE', 'OPTION',
+    'OR', 'ORDER', 'PCTFREE', 'PRIOR', 'PRIVILEGES', 'PUBLIC', 'RAW', 'RENAME',
+    'RESOURCE', 'REVOKE', 'ROW', 'ROWID', 'ROWNUM', 'ROWS', 'SELECT', 'SESSION',
+    'SET', 'SHARE', 'SIZE', 'SMALLINT', 'START', 'SUCCESSFUL', 'SYNONYM', 'SYSDATE',
+    'TABLE', 'THEN', 'TO', 'TRIGGER', 'UID', 'UNION', 'UNIQUE', 'UPDATE', 'USER',
+    'VALIDATE', 'VALUES', 'VARCHAR', 'VARCHAR2', 'VIEW', 'WHENEVER', 'WHERE', 'WITH'
+]
+
+
 @actions.route('/start-convert-cls', methods=['POST', 'GET'])
 def start_convert_cls():
     try:
@@ -78,7 +95,7 @@ def start_convert_cls():
                 """
 
                 package_end = f"""
-     ----------------- END IMPLEMENTATION -------------------
+    ----------------- END IMPLEMENTATION -------------------
 END {file_convert_name};
 /
                 """
@@ -114,7 +131,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                         formatted_description = "/**\n"
                         for line in lines:
                             if line.strip() != "":
-                                formatted_description += f"     * {line.strip()}\n"
+                                formatted_description += f"     * {line}\n"
                         formatted_description += "    **/"
                         formatted_description = formatted_description.replace("<BR>", "")
                     else:
@@ -282,6 +299,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                             package_body += f"""
     BEGIN
         -- TODO : Implement method body
+        RETURN;
     END {method_name};
                             """
                     elif return_type_value == "":
@@ -310,6 +328,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                                                 """
                         package_body += f"""
     BEGIN
+    RETURN;
     -- TODO : Implement method body
     END {method_name};
                                                 """
@@ -319,6 +338,8 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                 #### Start for query
                 for i in range(len(query_cls)):
                     query_name = query_cls[i].getAttribute("name")
+                    if query_name == "GetSyukoList":
+                        print("mrd")
                     # Tìm phần tử <Description> trong phần tử <Query> hiện tại
                     description_query = query_cls[i].getElementsByTagName("Description").item(0)
                     if description_query:
@@ -329,7 +350,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                         formatted_description_query = "/**\n"
                         for line in lines:
                             if line.strip() != "":
-                                formatted_description_query += f"     * {line.strip()}\n"
+                                formatted_description_query += f"     * {line}\n"
                         formatted_description_query += "    **/"
                         formatted_description_query = formatted_description_query.replace("<BR>", "")
                     else:
@@ -356,12 +377,13 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                     else:
                         parameter_query_query_value = ""
 
-                    declare_record_query = f"TYPE table{query_name} IS TABLE OF record{query_name}Tmp;"
-                    declare_record_query += f"""
+                    declare_record_query = f"""
     TYPE record{query_name}Tmp IS RECORD (
-         {parameter_query_query_value}
+        {parameter_query_query_value}
     );
-                    """
+    TYPE table{query_name} IS TABLE OF record{query_name}Tmp;
+                                    """
+
                     if formal_spec_query_value != "":
                         package_content += f"""
     {formatted_description_query}
@@ -370,7 +392,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                         """
 
                         package_body += f"""
-    FUNCTION {query_name}({formal_spec_query_value})  RETURN SYS_REFCURSOR IS
+    FUNCTION {query_name}({formal_spec_query_value}) RETURN SYS_REFCURSOR IS
 
     BEGIN
         -- TODO : Implement method body
@@ -409,14 +431,19 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
 
 def convert_query_parameter(input_str):
     elements = input_str.split(',')
+
     output_str1 = ""
     # Duyệt qua từng phần tử và chuyển đổi
     output_elements = []
-    for element in elements:
+    last_index = len(elements) - 1
+    for index, element in enumerate(elements):
         # Tách tên biến và kiểu dữ liệu
         parts = element.split(':')
         if len(parts) == 2:
             var_name, var_type = parts
+            var_name = var_name.strip()
+            if var_name.upper() in oracle_keywords:
+                var_name = "\"" + var_name + "\""
             if '=' in var_type:
                 var_type_value = convert_data_type_file(var_type.split('=')[0])
                 var_type_value += " DEFAULT " + var_type.split('=')[1]
@@ -426,7 +453,7 @@ def convert_query_parameter(input_str):
                     var_type_value = "VARCHAR2(4000)"
 
             # Tạo định dạng đầu ra cho tham số
-            if element == elements[-1]:
+            if index == last_index:
                 output_var = f"{var_name} {var_type_value}"
             else:
                 output_var = f"{var_name} {var_type_value},"
@@ -435,6 +462,9 @@ def convert_query_parameter(input_str):
 
         elif len(parts) == 3:
             var_name, var_type, var_comment = parts
+            var_name = var_name.strip()
+            if var_name.upper() in oracle_keywords:
+                var_name = "\"" + var_name + "\""
             if '=' in var_type:
                 if "SCALE".upper() in var_type.upper():
                     var_type_value = convert_data_type_file(var_type.split('(')[0])
@@ -454,7 +484,7 @@ def convert_query_parameter(input_str):
             output_elements.append(output_var)
 
     # Kết hợp các phần tử lại với nhau và ngăn cách bằng dấu phẩy
-    output_str = '\n         '.join(output_elements)
+    output_str = '\n\t\t'.join(output_elements)
     return output_str
 
 
@@ -469,6 +499,8 @@ def convert_formal_spec(input_str):
         parts = element.split(':')
         if len(parts) == 2:
             var_name, var_type = parts
+            if var_name.upper() in oracle_keywords:
+                var_name = "\"" + var_name + "\""
             if '=' in var_type:
                 var_type_value = convert_data_type_file(var_type.split('=')[0])
                 default_value = var_type.split('=')[1].replace("\"", "\'")
@@ -488,6 +520,8 @@ def convert_formal_spec(input_str):
             output_elements.append(output_var)
         elif len(parts) == 3:
             var_name, var_type, var_data = parts
+            if var_name.upper() in oracle_keywords:
+                var_name = "\"" + var_name + "\""
             if '=' in var_type:
                 var_type_value = convert_data_type_file(var_type.split('=')[0])
                 var_type_value += " DEFAULT " + var_type.split('=')[1]
@@ -530,6 +564,10 @@ def convert_data_type_file(data_type):
         data_type = "NUMBER"
     elif '%Float' == data_type or '%Library.Float' == data_type:
         data_type = "NUMBER"
+
+    # truong hop dac biet
+    elif 'Com.UpdateInfo' == data_type:
+        data_type = "COM_UPDATE_INFO"
     return data_type
 
 
@@ -591,14 +629,14 @@ def start_convert_mac():
                 # Tìm tag <Routine> và lấy nội dung CDATA bên trong
                 routine_cdata = content.getElementsByTagName("Routine")[0].firstChild.data
 
-                #trước khi xử lý remove dòng có comment #;
+                # trước khi xử lý remove dòng có comment #;
                 code_lines = routine_cdata.split('\n')
                 pattern_check_comment = r'^\s*\#\;'
                 processed_code = []
                 for line in code_lines:
                     if re.findall(pattern_check_comment, line.strip()):
                         continue
-                    else :
+                    else:
                         processed_code.append(line)
 
                 result_code_after_format = ""
@@ -672,7 +710,7 @@ def start_convert_mac():
                 """
 
                 package_body = f"""
-     ----------------- END DECLARE METHODS -------------------
+    ----------------- END DECLARE METHODS -------------------
 END {file_convert_name};
 /
 CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
@@ -760,7 +798,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                     lines = method_comment.split('\n')
                     for line in lines:
                         if line.strip() != "":
-                            method_comment_mac += f"     * {line.strip()}\n"
+                            method_comment_mac += f"     * {line.strip}\n"
                     method_comment_mac += "    **/"
                     method_comment_mac = method_comment_mac.replace("<BR>", "").replace("///", "")
                     method_content = "FUNCTION " + method_name + "(" + output_params + ") " + method_access
@@ -791,7 +829,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
     END {method_name};
                                     """
                 package_end = f"""
-     ----------------- END IMPLEMENTATION -------------------
+    ----------------- END IMPLEMENTATION -------------------
 END {file_convert_name};
 /
                 """
@@ -800,7 +838,7 @@ END {file_convert_name};
                 # duyệt thêm các method mà không có javadoc
                 for method in methods:
                     method_name1 = method[0]
-                    if method_name1 == "WriteTempData":
+                    if method_name1 == "TestMakeData":
                         print("m,rd")
                     method_params1 = method[1]
                     method_access1 = "RETURN VARCHAR2"
@@ -847,7 +885,7 @@ END {file_convert_name};
                                     # lưu trữ lại param và default value
                                     new_param_name = item_new_value.split("OUT")[0]
                                     default_value = item_new_value.split("DEFAULT")[1]
-                                    if "''" in default_value :
+                                    if "''" in default_value:
                                         default_value = "NULL"
                                     array_default_value_method.append((new_param_name, default_value))
                                 else:
@@ -856,7 +894,7 @@ END {file_convert_name};
 
                             # Kết hợp các phần tử lại với nhau và ngăn cách bằng dấu phẩy
                             output_str_new_param_value = ','.join(array_new)
-                            output_params = output_str_new_param_value #mrd
+                            output_params = output_str_new_param_value  # mrd
 
                         output_default_value_method_mac = ""
                         for item_set_value_method in array_default_value_method:
@@ -872,38 +910,30 @@ END {file_convert_name};
                             package_body += f"""
     {method_content1} IS   
     BEGIN
-                                            """
-                            if output_default_value_method_mac == "":
-                                package_body += f"""
     -- TODO : Implement method body
     RETURN NULL;  
     END {method_name1};
-                                                 """
-                            else:
-                                package_body += f"""
-        {output_default_value_method_mac}
-        -- TODO : Implement method body
-        RETURN NULL;  
-    END {method_name1};
-                                                """
+                                            """
+
 
                         else:
                             method_content1 = "FUNCTION " + method_name1 + "(" + output_params + ") " + method_access1
                             package_content += f"""
     {method_content1};       
                                                """
-                        package_body += f"""
+
+                            package_body += f"""
     {method_content1} IS   
     BEGIN
                                         """
-                        if output_default_value_method_mac == "":
-                            package_body += f"""            
+                            if output_default_value_method_mac == "":
+                                package_body += f"""            
         -- TODO : Implement method body
         RETURN NULL;  
     END {method_name1};
                                             """
-                        else:
-                            package_body += f"""     
+                            else:
+                                package_body += f"""     
         {output_default_value_method_mac}                           
         -- TODO : Implement method body
         RETURN NULL;  
