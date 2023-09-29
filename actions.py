@@ -633,21 +633,29 @@ def start_convert_mac():
                 code_lines = routine_cdata.split('\n')
                 pattern_check_comment = r'^\s*\#\;'
                 processed_code = []
+                result_code_after_format = ""
                 for line in code_lines:
                     if re.findall(pattern_check_comment, line.strip()):
                         continue
                     else:
-                        processed_code.append(line)
-
-                result_code_after_format = ""
-                for line in processed_code:
-                    result_code_after_format += line + "\n"
+                        result_code_after_format += line + "\n"
 
                 routine_cdata = result_code_after_format
                 methods = re.findall(pattern_method, routine_cdata)
 
-                pattern_method_javadoc = r'(\/{2,}\s*(.*?)\s*<BR>[\s\S]*?)([\w.]+)\(([^)【】]+)\)\s*(Public|Private|public|private|PUBLIC|PRIVATE|)\s*{([\s\S]*?)'
-                methods_javadoc = re.findall(pattern_method_javadoc, routine_cdata)
+                # remove #include, #define of routine_cdata for find pattern javadoc
+                new_routine_cdata = ""
+                code_lines_new = routine_cdata.split('\n')
+                for line in code_lines_new:
+                    if re.findall(pattern_check_comment, line.strip()):
+                        continue
+                    elif ("#Include".upper() in line.upper()) or ("#Define".upper() in line.upper()):
+                        continue
+                    else:
+                        new_routine_cdata += line + "\n"
+
+                pattern_method_javadoc = r'(\/\/\/\s*(.*?)\s*(<BR>|)[\s\S]*?)([\w.]+)\(([^)【】]+)\)\s*(Public|Private|public|private|PUBLIC|PRIVATE|)\s*{([\s\S]*?)'
+                methods_javadoc = re.findall(pattern_method_javadoc, new_routine_cdata)
 
                 pattern_include = r'#Include\s+(\S+)'
                 # Sử dụng re.findall để tìm tất cả các #Include trong đoạn văn bản
@@ -723,10 +731,10 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                 # mrd methods -> methods ALL and not javadoc
                 method_exist_javadoc_name = []
                 for method in methods_javadoc:
-                    method_exist_javadoc_name.append(method[2])
+                    method_exist_javadoc_name.append(method[3])
                     method_comment = method[0]
-                    method_name = method[2]
-                    method_params = method[3]
+                    method_name = method[3]
+                    method_params = method[4]
                     method_access = "RETURN VARCHAR2"
                     # Tách các phần từ trong chuỗi đầu vào
                     input_list = method_params.split(',')
@@ -741,6 +749,8 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                             if "..." in item:
                                 item = item.replace("...", "")
                                 param_name = item.split('=')[0].strip()
+                                if param_name.upper() in oracle_keywords:
+                                    param_name = "\"" + param_name + "\""
                                 default_value = item.split('=')[1].replace("\"", '\'').strip()
                                 if default_value == "\'\'":
                                     default_value = "NULL"
@@ -761,6 +771,8 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                                     output_list.append(f'{parameter_output}')
                             else:
                                 param_name = item.split('=')[0].strip()
+                                if param_name.upper() in oracle_keywords:
+                                    param_name = "\"" + param_name + "\""
                                 default_value = item.split('=')[1].replace("\"", '\'').strip()
                                 if default_value == "\'\'":
                                     default_value = "NULL"
@@ -774,7 +786,13 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                                     parameter_output = param_name + " IN VARCHAR2 " + param_default
                                     output_list.append(f'{parameter_output}')
                                 else:
-                                    parameter_output = param_name + " IN VARCHAR2 " + param_default
+                                    # sửa lại format in ra
+
+                                    # lưu trữ lại param và default value
+                                    if "$$$" in default_value:
+                                        constant = default_value[3:]
+                                        default_value = f"COMMON.GET_CONSTANT('{constant}', INCLUDE_LIST)"
+                                    parameter_output = param_name + " IN VARCHAR2 DEFAULT " + default_value
                                     output_list.append(f'{parameter_output}')
 
                         else:
@@ -790,6 +808,8 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                                 elif "pInput" in item:
                                     output_list.append(f'{item} IN VARCHAR2')
                                 else:
+                                    if item.upper() in oracle_keywords:
+                                        item = "\"" + item + "\""
                                     output_list.append(f'{item} IN VARCHAR2')
 
                     output_params = ', '.join(output_list)
@@ -798,7 +818,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                     lines = method_comment.split('\n')
                     for line in lines:
                         if line.strip() != "":
-                            method_comment_mac += f"     * {line.strip}\n"
+                            method_comment_mac += f"     * {line}\n"
                     method_comment_mac += "    **/"
                     method_comment_mac = method_comment_mac.replace("<BR>", "").replace("///", "")
                     method_content = "FUNCTION " + method_name + "(" + output_params + ") " + method_access
@@ -838,8 +858,8 @@ END {file_convert_name};
                 # duyệt thêm các method mà không có javadoc
                 for method in methods:
                     method_name1 = method[0]
-                    if method_name1 == "TestMakeData":
-                        print("m,rd")
+                    if method_name1 == "SetPrintJyokenCycle":
+                        print("mrd")
                     method_params1 = method[1]
                     method_access1 = "RETURN VARCHAR2"
                     if method_name1 not in method_exist_javadoc_name:
@@ -853,10 +873,12 @@ END {file_convert_name};
                             if '=' in item:
                                 if "..." in item:
                                     item = item.replace("...", "")
-                                param_name = item.split('=')[0]
-                                param_default = item.split('=')[1].replace("\"", '\'')
+                                param_name = item.split('=')[0].strip()
+                                if param_name.upper() in oracle_keywords:
+                                    param_name = "\"" + param_name + "\""
+                                param_default = (item.split('=')[1].replace("\"", '\'')).strip()
                                 if "po" in item:
-                                    parameter_output = param_name + " OUT VARCHAR2" + param_default
+                                    parameter_output = param_name + " OUT VARCHAR2 DEFAULT " + param_default
                                     output_list1.append(f'{parameter_output}')
                                 else:
                                     if "''" in param_default:
@@ -871,6 +893,8 @@ END {file_convert_name};
                                 if "po" in item:
                                     output_list1.append(f'{item} OUT VARCHAR2')
                                 else:
+                                    if item.upper() in oracle_keywords:
+                                        item = "\"" + item + "\""
                                     output_list1.append(f'{item} IN VARCHAR2')
 
                         output_params = ', '.join(output_list1)
@@ -887,7 +911,18 @@ END {file_convert_name};
                                     default_value = item_new_value.split("DEFAULT")[1]
                                     if "''" in default_value:
                                         default_value = "NULL"
+                                    elif "$$$" in default_value:
+                                        constant = default_value[3:]
+                                        default_value = f"COMMON.GET_CONSTANT('{constant}', INCLUDE_LIST)"
+
                                     array_default_value_method.append((new_param_name, default_value))
+                                elif ("IN" in item_new_value) and ("DEFAULT" in item_new_value):
+                                    new_param_name = item_new_value.split("IN")[0]
+                                    default_value = item_new_value.split("DEFAULT")[1]
+                                    if "$$$" in default_value:
+                                        constant = default_value[3:]
+                                        default_value = f"COMMON.GET_CONSTANT('{constant}', INCLUDE_LIST)"
+                                    item_out_value = new_param_name + " IN VARCHAR2 DEFAULT " + default_value
                                 else:
                                     item_out_value = item_new_value
                                 array_new.append(item_out_value)
