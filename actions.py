@@ -328,8 +328,8 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                                                 """
                         package_body += f"""
     BEGIN
-    RETURN;
-    -- TODO : Implement method body
+        -- TODO : Implement method body
+        RETURN;
     END {method_name};
                                                 """
 
@@ -410,8 +410,8 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
     FUNCTION {query_name} RETURN SYS_REFCURSOR IS
 
     BEGIN
-    -- TODO : Implement method body
-    RETURN NULL;    
+        -- TODO : Implement method body
+        RETURN NULL;    
     END {query_name};
                                             """
 
@@ -654,7 +654,7 @@ def start_convert_mac():
                     else:
                         new_routine_cdata += line + "\n"
 
-                pattern_method_javadoc = r'(\/\/\/\s*(.*?)\s*(<BR>|)[\s\S]*?)([\w.]+)\(([^)【】]+)\)\s*(Public|Private|public|private|PUBLIC|PRIVATE|)\s*{([\s\S]*?)'
+                pattern_method_javadoc = r'(\/\/\/\s*(.*?)\s*(<BR>|)[\s\S]*?)([\w.]+)\((([^)【】]+)|)\)\s*(Public|Private|public|private|PUBLIC|PRIVATE|)\s*{([\s\S]*?)'
                 methods_javadoc = re.findall(pattern_method_javadoc, new_routine_cdata)
 
                 pattern_include = r'#Include\s+(\S+)'
@@ -794,7 +794,8 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                                         default_value = f"COMMON.GET_CONSTANT('{constant}', INCLUDE_LIST)"
                                     parameter_output = param_name + " IN VARCHAR2 DEFAULT " + default_value
                                     output_list.append(f'{parameter_output}')
-
+                        elif item == '':
+                            print("mrd")
                         else:
                             if "..." in item:
                                 item = item.replace("...", "")
@@ -821,7 +822,10 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                             method_comment_mac += f"     * {line}\n"
                     method_comment_mac += "    **/"
                     method_comment_mac = method_comment_mac.replace("<BR>", "").replace("///", "")
-                    method_content = "FUNCTION " + method_name + "(" + output_params + ") " + method_access
+                    if output_params == '':
+                        method_content = "FUNCTION " + method_name + " " + method_access
+                    else:
+                        method_content = "FUNCTION " + method_name + "(" + output_params + ") " + method_access
                     package_content += f"""
     {method_comment_mac}
     {method_content};       
@@ -837,15 +841,15 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
     BEGIN"""
                     if output_default_value == "":
                         package_body += f"""
-    -- TODO : Implement method body
-    RETURN NULL;  
+        -- TODO : Implement method body
+        RETURN NULL;  
     END {method_name};
                 """
                     else:
                         package_body += f"""
         {output_default_value}
-    -- TODO : Implement method body
-    RETURN NULL;  
+        -- TODO : Implement method body
+        RETURN NULL;  
     END {method_name};
                                     """
                 package_end = f"""
@@ -945,8 +949,8 @@ END {file_convert_name};
                             package_body += f"""
     {method_content1} IS   
     BEGIN
-    -- TODO : Implement method body
-    RETURN NULL;  
+        -- TODO : Implement method body
+        RETURN NULL;  
     END {method_name1};
                                             """
 
