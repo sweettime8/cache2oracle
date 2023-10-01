@@ -203,7 +203,7 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
 
                         pattern_constant = r'#Define\s+(\w+)\s+"?([^"\n]+)"?\s*'
                         # Sử dụng re.findall để tìm tất cả các #Define trong đoạn văn bản
-                        find_defines = re.findall(pattern_constant, imp_value)
+                        find_defines = re.findall(pattern_constant, imp_value, flags=re.IGNORECASE)
                         output_constants = ""
                         if find_defines:
                             for name, value in find_defines:
@@ -654,12 +654,12 @@ def start_convert_mac():
                     else:
                         new_routine_cdata += line + "\n"
 
-                pattern_method_javadoc = r'(\/\/\/\s*(.*?)\s*(<BR>|)[\s\S]*?)([\w.]+)\((([^)【】]+)|)\)\s*(Public|Private|public|private|PUBLIC|PRIVATE|)\s*{([\s\S]*?)'
+                pattern_method_javadoc = r'(\/\/\/\s*(.*?)\s*(<BR>|)[\s\S]*?\n)([\w.]+)\((([^)【】]+)|)\)\s*(Public|Private|public|private|PUBLIC|PRIVATE|)\s*{([\s\S]*?)'
                 methods_javadoc = re.findall(pattern_method_javadoc, new_routine_cdata)
 
                 pattern_include = r'#Include\s+(\S+)'
                 # Sử dụng re.findall để tìm tất cả các #Include trong đoạn văn bản
-                includes = re.findall(pattern_include, routine_cdata)
+                includes = re.findall(pattern_include, routine_cdata, re.IGNORECASE)
                 include_list = ""
                 if includes:
                     include_list += """/*******************************************************
@@ -684,7 +684,7 @@ def start_convert_mac():
 
                 pattern_constant = r'#Define\s+(\w+)\s+"?([^"\n]+)"?\s*'
                 # Sử dụng re.findall để tìm tất cả các #Define trong đoạn văn bản
-                find_defines = re.findall(pattern_constant, routine_cdata)
+                find_defines = re.findall(pattern_constant, routine_cdata, re.IGNORECASE)
                 output_constants = """
     /*******************************************************
      *  DECLARE CONSTANTS: Constants using in this package
@@ -694,6 +694,8 @@ def start_convert_mac():
                     for name, value in find_defines:
                         output_constants += f"""                 
     {name} VARCHAR2(150) := '{value}';"""
+                output_constants += f"""\n
+    ---------------- END DECLARE CONSTANTS -----------------"""
 
                 package_header = f"CREATE OR REPLACE PACKAGE {file_convert_name} AS "
                 package_content = f"""
@@ -738,7 +740,6 @@ CREATE OR REPLACE PACKAGE BODY {file_convert_name} AS """
                     method_access = "RETURN VARCHAR2"
                     # Tách các phần từ trong chuỗi đầu vào
                     input_list = method_params.split(',')
-
                     output_list = []
                     array_default_value = []
                     # Lặp qua danh sách các phần tử và thêm phần tử chuyển đổi vào danh sách mới
