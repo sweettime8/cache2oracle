@@ -1198,11 +1198,11 @@ def process_code(source_code):
         source_code = re.sub(try_catch_pattern, r'BEGIN\n  \1 \2 \nEXCEPTION\n  WHEN OTHERS THEN\n   \3\4 \nEND;',
                              source_code, flags=re.IGNORECASE)
 
-    # for step không lồng nhau
+    # for step không lồng nhau (ko lồng và không có if else do while )
     pattern_for_step_1 = r'\s*(For)\s*(\w+)\s*\=(\w+)\:(\w+)\:([^{]*)\s*\{([\s\S]*?)\}'
     matches_for_step_1 = re.findall(pattern_for_step_1, source_code.strip(), flags=re.IGNORECASE)
     if matches_for_step_1:
-        source_code = re.sub(pattern_for_step_1, r'FOR \2 IN \3 .. \5 LOOP \n\t   \6\nEND LOOP;',
+        source_code = re.sub(pattern_for_step_1, r'FOR \2 IN \3..\5\n\t LOOP \n\t   \6\n\tEND LOOP;',
                              source_code, flags=re.IGNORECASE)
 
     # check với biểu thức IF nằm trong 1 dòng và không có {}, có set:
@@ -1222,11 +1222,27 @@ def process_code(source_code):
     # check với biểu thức IF nằm trong 1 dòng và có {}:
     pattern_if_2 = r'If\s*([^{]+)\{([^}]+)\}\n'
     matches_if_2 = re.findall(pattern_if_2, source_code.strip())
+
+    # '= $C(0) -> IS NOT NULL
+    matche_pattern_char0 = r'(\'=\s*)(\$C|\$Char)(\(0\))'
+
+    # TH1: Dùng trong các condition -> IS NULL
+    # TH2: Dùng để gán giá trị -> := COMMON.C_CHAR(0)
+    match_pattern_char1 = r'\s*=\s*(\$C|\$Char)\(([^)]+)\)'
+
     if matches_if_2:
         source_code = re.sub(pattern_if_2, r'IF \1 THEN \n\t    \2 \n\tEND IF;\n', source_code, flags=re.IGNORECASE)
 
     code_lines = source_code.split('\n')
     for line in code_lines:
+        if re.findall(matche_pattern_char0, line, flags=re.IGNORECASE):
+            line = re.sub(r"'=\s*\$(C|CHAR)\(0\)", 'IS NOT NULL', line, flags=re.IGNORECASE)
+
+        if ("If".upper() or ("While").upper() or ("ElseIf").upper() or ("QUIT:").upper()) in line.upper():
+            if re.findall(match_pattern_char1, line, flags=re.IGNORECASE):
+                matchs1 = re.findall(match_pattern_char1, line, flags=re.IGNORECASE)
+                line = re.sub(match_pattern_char1, r' IS NULL', line, flags=re.IGNORECASE)
+
         if "}While".upper() in line.upper():
             processed_code.append(line)
             continue
@@ -1313,29 +1329,24 @@ def process_code(source_code):
 source_code = """
     Set No = No + 1
     Set No = No + 1
-    For i=1:1:$Length(SyohinMotherInfo) {    
+    For i=1:1:$Length(ducnh_1) {    
         Set $List(ExpDataStock,  $$$tmpExpDataStockListMotherInfo + No) = $ListGet(SyohinMotherInfo, i)
         Set No = No + 1
-        For i=1:1:$Length(tttt) {  
-            For i=1:1:$Length(tttt) {  
-                Set No = No + 1
-            }
+        For i=1:1:$Length(ducnh_2) {  
+
         }
-        For i=1:1:$Length(tttt) {  
+        For i=1:1:$Length(ducnh_3) {  
             Set No = No + 1
-        }
-        
-    }
-    
-    For i=1:1:$Length(tttt) {  
+        }     
+    } 
+    For i=1:1:$Length(ducnh_4) {  
             Set No = No + 1
-    }
-    
+    }    
 """
 
 
 def checkLine(source_code):
-    print("checkLine")
+    source_code = source_code.replace("\n\n", "\n")
     lines = source_code.split('\n')
     line_base = ""
     line_new = ""
@@ -1343,22 +1354,30 @@ def checkLine(source_code):
     for i, line in enumerate(lines):
         if ("for".upper() not in line.upper()) and ("{" not in line):
             line_base += line + "\n"
+            index_line = i
         elif "If".upper() in line.upper() and "{" in line:
             print("if")
+            index_line = i
         elif "for".upper() in line.upper() and "{" in line:
             line_new = line  # Bắt đầu từ dòng có "for"
             for j in range(i + 1, len(lines)):
                 line_new += "\n" + lines[j]  # Thêm các dòng tiếp theo vào linenew
-            line_base += "\n" + checkFor(line_new)
+            line_base += checkFor(line_new)
             index_line = i
+            line_base = line_base.replace("\n\n", "\n")
             break
         else:
             line_base += line + "\n"
+            line_base = line_base.replace("\n\n", "\n")
+            index_line = i
+    len_lines = len(lines)
 
-    if (index_line < len(lines)):
+    if (index_line + 1 < len(lines)):
         checkLine(line_base)
-
-    return line_base
+    if line_base != "":
+        return line_base
+    else:
+        return source_code
 
 
 def checkFor(source_code):
@@ -1369,7 +1388,7 @@ def checkFor(source_code):
     lines = source_code.split('\n')
     line_base_for = ""
     count = 0
-    pattern_for = '\s*(For)\s*(\w+)\s*\=(\w+)\:(\w+)\:([^{]*)\s*\{(([\s\S]*?)\}'
+    pattern_for = '\s*(For)\s*(\w+)\s*\=(\w+)\:(\w+)\:([^{]*)\s*\{('
     pattern_for_loop = '([\s\S]*?)\}'
     pattern_for_loop_end = '([\s\S]*?))\}'
     line_to_end = ""
@@ -1394,7 +1413,7 @@ def checkFor(source_code):
                             pattern_for += pattern_for_loop_end
                 else:
                     pattern_for += pattern_for_loop_end
-                matches_pattern = re.findall(pattern_for, source_code.strip(), flags=re.IGNORECASE)
+                matches_pattern = re.findall(pattern_for, lines_for, flags=re.IGNORECASE)
                 if matches_pattern:
                     lines_for = re.sub(pattern_for, r'FOR \2 IN \3 .. \5 LOOP \n\t   \6\nEND LOOP\n', lines_for,
                                        flags=re.IGNORECASE)
@@ -1422,4 +1441,6 @@ def checkTryCatch(source_code):
 def checkDoWhile(source_code):
     print("checkDoWhile")
 
-# result = checkLine(source_code)
+
+#result = checkLine(source_code)
+#print(result)
