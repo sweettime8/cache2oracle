@@ -1211,7 +1211,25 @@ def process_code(source_code):
     # if matches_for_step_1:
     #     source_code = re.sub(pattern_for_step_1, r'FOR \2 IN \3..\5\n\t LOOP \n\t   \6\n\tEND LOOP;',
     #                          source_code, flags=re.IGNORECASE)
+
+    code_lines1 = source_code.split('\n')
+    new_source = []
+    for line1 in code_lines1:
+        if "#;" in line1:
+            continue
+        else:
+            new_source.append(line1)
+            continue
+    result_new = ""
+    for line_new in new_source:
+        result_new += line_new + "\n"
+
+    source_code = result_new
+    #For[2] lồng nhau
     source_code = checkLine(source_code)
+
+    #For[1] lồng nhau
+    source_code = checkLineFor1(source_code)
 
     # check với biểu thức IF nằm trong 1 dòng và không có {}, có set:
     pattern_if_0 = r'If\s+([^\n{]+)\s*(Set)\s*([^\n]*)'
@@ -1360,6 +1378,99 @@ source_code = """
 
 output_source = ""
 
+def checkLineFor1(source_code):
+    source_code = source_code.replace("\n\n", "\n")
+    pattern_for_1 = r'\s*For\s*\{([\s\S]*?)\}'
+    if not re.findall(pattern_for_1, source_code, flags=re.IGNORECASE):
+        return source_code
+    lines = source_code.split('\n')
+    line_base = ""
+    line_new = ""
+    index_line = 0
+    for i, line in enumerate(lines):
+        if line.strip() == "":
+            index_line = i
+        if ("for".upper() not in line.upper()) and ("{" not in line):
+            line_base += line + "\n"
+            index_line = i
+        elif "If".upper() in line.upper() and "{" in line:
+            print("if")
+            line_base += line + "\n"
+            index_line = i
+        elif "for".upper() in line.upper() and "{" in line:
+            line_new = line  # Bắt đầu từ dòng có "for"
+            for j in range(i + 1, len(lines)):
+                line_new += "\n" + lines[j]  # Thêm các dòng tiếp theo vào linenew
+            line_base += checkFor1(line_new)
+            index_line = i
+            line_base = line_base.replace("\n\n", "\n")
+            break
+        else:
+            line_base += line + "\n"
+            line_base = line_base.replace("\n\n", "\n")
+            index_line = i
+
+    if (index_line + 1 < len(lines)):
+        if re.findall(pattern_for_1, line_base, flags=re.IGNORECASE):
+            source_output = checkLineFor1(line_base)
+            return source_output
+        else:
+            return line_base
+    else:
+        return line_base
+
+def checkFor1(source_code):
+    print("checkFor1")
+    count_braces = 0
+    inside_for = False
+    lines_for = ""
+    lines = source_code.split('\n')
+    line_base_for = ""
+    count = 0
+    pattern_for = '\s*For\s*\{('
+    pattern_for_loop = '([\s\S]*?)\}'
+    pattern_for_loop_end = '([\s\S]*?))\}'
+    line_to_end = ""
+    for i, line in enumerate(lines):
+        # Nếu trong một vòng for
+        if inside_for:
+            if ("{" in line) and ("}" in line):
+                count += 1
+            elif ("{" in line) and ("}" not in line):
+                count += 1
+            # Tính toán số ngoặc mở và đóng
+            count_braces += line.count("{")
+            count_braces -= line.count("}")
+            lines_for += line + "\n"
+            # Nếu số ngoặc mở và đóng bằng nhau, vòng for kết thúc
+            if count_braces == 0:
+                inside_for = False
+                if count > 0:
+                    for x in range(count):
+                        print(" x = " + str(x))
+                        if x < count - 1:
+                            pattern_for += pattern_for_loop
+                        else:
+                            pattern_for += pattern_for_loop_end
+                else:
+                    pattern_for += pattern_for_loop_end
+                matches_pattern = re.findall(pattern_for, lines_for, flags=re.IGNORECASE)
+                if matches_pattern:
+                    lines_for = re.sub(pattern_for, r'LOOP\n  \1 \nEND LOOP;', lines_for,
+                                       flags=re.IGNORECASE)
+                    for j in range(i + 1, len(lines)):
+                        line_to_end += "\n" + lines[j]  # Thêm các dòng tiếp theo vào linenew
+                    lines_for += "\n" + line_to_end
+                return lines_for
+        else:
+            # Kiểm tra nếu dòng chứa vòng for
+            if ("For".upper() in line.upper()) and ("{" in line):
+                inside_for = True
+                if "{" in line:
+                    count += 1
+                count_braces += line.count("{")
+                count_braces -= line.count("}")
+                lines_for += line + "\n"
 
 def checkLine(source_code):
     source_code = source_code.replace("\n\n", "\n")
@@ -1368,7 +1479,6 @@ def checkLine(source_code):
         return source_code
     lines = source_code.split('\n')
     line_base = ""
-    line_new = ""
     index_line = 0
     for i, line in enumerate(lines):
         if line.strip() == "":
@@ -1392,7 +1502,6 @@ def checkLine(source_code):
             line_base += line + "\n"
             line_base = line_base.replace("\n\n", "\n")
             index_line = i
-    len_lines = len(lines)
 
     if (index_line + 1 < len(lines)):
         if re.findall(pattern_for_step_1, line_base, flags=re.IGNORECASE):
@@ -1410,7 +1519,6 @@ def checkFor(source_code):
     inside_for = False
     lines_for = ""
     lines = source_code.split('\n')
-    line_base_for = ""
     count = 0
     pattern_for = '\s*(For)\s*(\w+)\s*\=(\w+)\:(\w+)\:([^{]*)\s*\{('
     pattern_for_loop = '([\s\S]*?)\}'
