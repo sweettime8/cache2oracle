@@ -1037,41 +1037,60 @@ def convert_editor():
             # check Do[3] : Do MethodName^RoutineName(param, ...) -> ROUTINE_NAME_MAC.MethodName(param1, param2,...)
             pattern_do_3 = r'Do (\w+)\^(\w+)\.(\w+)\((.*?)\)'
             # Tìm các kết hợp phù hợp trong chuỗi và thực hiện chuyển đổi
-            matchs_do_3 = re.findall(pattern_do_3, from_code.strip())
-            for match_do_3 in matchs_do_3:
-                m_do3_function = match_do_3[0]
-                m_do3_package = match_do_3[1].upper()
-                m_do3_routine = match_do_3[2]
-                m_do3_param = match_do_3[3]
-                input_str_do3 = "Do " + match_do_3[0] + "^" + match_do_3[1] + "." + match_do_3[2] + "(" + match_do_3[
-                    3] + ")"
-                m_do3_routine = ''.join(['_' + c if c.isupper() else c for c in m_do3_routine]).lstrip('_')
-                m_do3_routine = m_do3_routine.upper()
-                # kiểm tra xem param có . không, nếu có remove đi
-                m_do3_param = re.sub(r'\.', '', m_do3_param)
-                output_str_do_3 = m_do3_package + "_" + m_do3_routine + "_MAC." + m_do3_function + "(" + m_do3_param + ")"
+            matches_do_3 = re.findall(pattern_do_3, from_code.strip())
+            if matches_do_3:
+                for match_do_3 in matches_do_3:
+                    m_do3_function = match_do_3[0]
+                    m_do3_package = match_do_3[1].upper()
+                    m_do3_routine = match_do_3[2]
+                    m_do3_param = match_do_3[3]
+                    input_str_do3 = "Do " + match_do_3[0] + "^" + match_do_3[1] + "." + match_do_3[2] + "(" + match_do_3[
+                        3] + ")"
+                    m_do3_routine = ''.join(['_' + c if c.isupper() else c for c in m_do3_routine]).lstrip('_')
+                    m_do3_routine = m_do3_routine.upper()
+                    # kiểm tra xem param có . không, nếu có remove đi
+                    m_do3_param = re.sub(r'\.', '', m_do3_param)
+                    output_str_do_3 = m_do3_package + "_" + m_do3_routine + "_MAC." + m_do3_function + "(" + m_do3_param + ")"
 
-                to_code_temp = to_code_temp.replace(input_str_do3, output_str_do_3)
+                    to_code_temp = to_code_temp.replace(input_str_do3, output_str_do_3)
+
+            pattern_do_4 = r'(Do\s*##class)\(([^)]*)\).([^(]*)([^\n]*)'
+            matches_do_4 = re.findall(pattern_do_4, from_code.strip())
+            if matches_do_4:
+                for match_do_4 in matches_do_4:
+                    m_do4_class_name = match_do_4[1]
+                    m_do4_method_name = match_do_4[2]
+                    m_do4_param = match_do_4[3]
+
+                    if "." in m_do4_class_name:
+                        m_do4_class_name = m_do4_class_name.replace(".", "")
+                    # Thêm dấu "_" trước chữ in hoa cua ClassName
+                    output_class_name = ''.join(['_' + c if c.isupper() else c for c in m_do4_class_name]).lstrip('_')
+                    output_class_name = output_class_name.upper() + "_CLS"
+                    output_str_do_4 = output_class_name + "." + m_do4_method_name + m_do4_param
+                    input_str_do4 = match_do_4[0]+"(" + match_do_4[1] + ")" + "." + m_do4_method_name + m_do4_param
+
+                    to_code_temp = to_code_temp.replace(input_str_do4, output_str_do_4)
 
             # check to_code có chứa tên hàm để replace:
             pattern_func = r'\$\$([A-Za-z0-9]+)\^(\w+)\.([A-Za-z0-9]+)\(([^)]+)\)'
-            matchs = re.findall(pattern_func, to_code_temp.strip())
+            matches = re.findall(pattern_func, to_code_temp.strip())
+            if matches:
+                for match in matches:
+                    input_str = "$$" + match[0] + "^" + match[1] + "." + match[2] + "(" + match[3] + ")"
+                    m_function = match[0]
+                    m_package = match[1]
+                    m_routine = match[2]
+                    m_param = match[3]
+                    # Thêm dấu "_" trước chữ in hoa
+                    output_str = ''.join(['_' + c if c.isupper() else c for c in match[2]]).lstrip('_')
+                    # _MAC vào cuối và viết Hoa
+                    output_str = (match[1].upper() + "_" + output_str + "_MAC").upper()
+                    # trả lại chuỗi in ra :
+                    output_str = output_str + "." + match[0].upper() + "(" + match[3] + ")"
 
-            for match in matchs:
-                input_str = "$$" + match[0] + "^" + match[1] + "." + match[2] + "(" + match[3] + ")"
-                m_function = match[0]
-                m_package = match[1]
-                m_routine = match[2]
-                m_param = match[3]
-                # Thêm dấu "_" trước chữ in hoa
-                output_str = ''.join(['_' + c if c.isupper() else c for c in match[2]]).lstrip('_')
-                # _MAC vào cuối và viết Hoa
-                output_str = (match[1].upper() + "_" + output_str + "_MAC").upper()
-                # trả lại chuỗi in ra :
-                output_str = output_str + "." + match[0].upper() + "(" + match[3] + ")"
-
-                # Replace đoạn pattern bằng chuỗi output_str
-                to_code_temp = to_code_temp.replace(input_str, output_str)
+                    # Replace đoạn pattern bằng chuỗi output_str
+                    to_code_temp = to_code_temp.replace(input_str, output_str)
 
             to_code = convert_cache_to_oracle(to_code_temp, conversion_rules)
 
@@ -1225,10 +1244,10 @@ def process_code(source_code):
         result_new += line_new + "\n"
 
     source_code = result_new
-    #For[2] lồng nhau
+    # For[2] lồng nhau
     source_code = checkLine(source_code)
 
-    #For[1] lồng nhau
+    # For[1] lồng nhau
     source_code = checkLineFor1(source_code)
 
     # check với biểu thức IF nằm trong 1 dòng và không có {}, có set:
@@ -1318,6 +1337,12 @@ def process_code(source_code):
                     condition = (line).split("ElseIf ")[1].split("{")[0]
                 elif "elseIf" in line:
                     condition = (line).split("elseIf ")[1].split("{")[0]
+                elif "elseIF" in line:
+                    condition = (line).split("elseIF ")[1].split("{")[0]
+                elif "ElseIF" in line:
+                    condition = (line).split("ElseIF ")[1].split("{")[0]
+                elif "ELSEIF" in line:
+                    condition = (line).split("ELSEIF ")[1].split("{")[0]
                 else:
                     condition = (line).split("elseif ")[1].split("{")[0]
                 processed_code.append(" " * (len(stack) - 1) * 4 + f"ELSIF {condition} ")
@@ -1378,6 +1403,7 @@ source_code = """
 
 output_source = ""
 
+
 def checkLineFor1(source_code):
     source_code = source_code.replace("\n\n", "\n")
     pattern_for_1 = r'\s*For\s*\{([\s\S]*?)\}'
@@ -1418,6 +1444,7 @@ def checkLineFor1(source_code):
             return line_base
     else:
         return line_base
+
 
 def checkFor1(source_code):
     print("checkFor1")
@@ -1471,6 +1498,7 @@ def checkFor1(source_code):
                 count_braces += line.count("{")
                 count_braces -= line.count("}")
                 lines_for += line + "\n"
+
 
 def checkLine(source_code):
     source_code = source_code.replace("\n\n", "\n")

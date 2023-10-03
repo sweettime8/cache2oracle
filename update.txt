@@ -94,3 +94,19 @@
 1 . fix xử lý không remove comment code #;  trong javadoc
 2 . fix IN dính liền với tên param , Default '' = NULL
 3 . Javadoc xóa space, Dư space chỗ type pattern query
+
+--------------
+1. Fix If/ElseIf/Else [1]
+2. Set $BIT(bit, pos) = Value
+   Set $Extract(params, from, to) =Value
+   Set $EXTRACT(string,from) = value
+   Quit [3]
+   Goto [1]
+   Goto [2]
+   Do [4]
+   n # m
+   n \ m
+   $DOUBLE
+
+
+3 .
