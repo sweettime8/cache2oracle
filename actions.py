@@ -1006,6 +1006,13 @@ def convert_editor():
             # convert _ -> ||
             to_code_temp = re.sub(r'_', r'||', from_code)
 
+            # Convert comment /* */ multiline
+            pattern_comment_mutil_line = r'(\/\*\s*\n([^*]*)\s*\n\*\/)'
+            matchs_comment_mutil_line = re.findall(pattern_comment_mutil_line, to_code_temp)
+            if matchs_comment_mutil_line:
+                for match_comment_mutil_line in matchs_comment_mutil_line:
+                    to_code_temp = to_code_temp.replace(match_comment_mutil_line[0], "")  # mrd
+
             # convert if else :
             to_code_temp = process_code(to_code_temp)
 
@@ -1199,11 +1206,12 @@ def process_code(source_code):
                              source_code, flags=re.IGNORECASE)
 
     # for step không lồng nhau (ko lồng và không có if else do while )
-    pattern_for_step_1 = r'\s*(For)\s*(\w+)\s*\=(\w+)\:(\w+)\:([^{]*)\s*\{([\s\S]*?)\}'
-    matches_for_step_1 = re.findall(pattern_for_step_1, source_code.strip(), flags=re.IGNORECASE)
-    if matches_for_step_1:
-        source_code = re.sub(pattern_for_step_1, r'FOR \2 IN \3..\5\n\t LOOP \n\t   \6\n\tEND LOOP;',
-                             source_code, flags=re.IGNORECASE)
+    # pattern_for_step_1 = r'\s*(For)\s*(\w+)\s*\=(\w+)\:(\w+)\:([^{]*)\s*\{([\s\S]*?)\}'
+    # matches_for_step_1 = re.findall(pattern_for_step_1, source_code.strip(), flags=re.IGNORECASE)
+    # if matches_for_step_1:
+    #     source_code = re.sub(pattern_for_step_1, r'FOR \2 IN \3..\5\n\t LOOP \n\t   \6\n\tEND LOOP;',
+    #                          source_code, flags=re.IGNORECASE)
+    source_code = checkLine(source_code)
 
     # check với biểu thức IF nằm trong 1 dòng và không có {}, có set:
     pattern_if_0 = r'If\s+([^\n{]+)\s*(Set)\s*([^\n]*)'
@@ -1333,7 +1341,13 @@ source_code = """
         Set $List(ExpDataStock,  $$$tmpExpDataStockListMotherInfo + No) = $ListGet(SyohinMotherInfo, i)
         Set No = No + 1
         For i=1:1:$Length(ducnh_2) {  
-
+            If ($$SetPrintJyok(piUserKey, piHospCd) = 0){
+				Set cnt = 1
+				Do {
+										
+					Set cnt = cnt +1
+					}While(cnt <= PrintCnt)
+			}
         }
         For i=1:1:$Length(ducnh_3) {  
             Set No = No + 1
@@ -1344,19 +1358,27 @@ source_code = """
     }    
 """
 
+output_source = ""
+
 
 def checkLine(source_code):
     source_code = source_code.replace("\n\n", "\n")
+    pattern_for_step_1 = r'\s*(For)\s*(\w+)\s*\=(\w+)\:(\w+)\:([^{]*)\s*\{([\s\S]*?)\}'
+    if not re.findall(pattern_for_step_1, source_code, flags=re.IGNORECASE):
+        return source_code
     lines = source_code.split('\n')
     line_base = ""
     line_new = ""
     index_line = 0
     for i, line in enumerate(lines):
+        if line.strip() == "":
+            index_line = i
         if ("for".upper() not in line.upper()) and ("{" not in line):
             line_base += line + "\n"
             index_line = i
         elif "If".upper() in line.upper() and "{" in line:
             print("if")
+            line_base += line + "\n"
             index_line = i
         elif "for".upper() in line.upper() and "{" in line:
             line_new = line  # Bắt đầu từ dòng có "for"
@@ -1373,11 +1395,13 @@ def checkLine(source_code):
     len_lines = len(lines)
 
     if (index_line + 1 < len(lines)):
-        checkLine(line_base)
-    if line_base != "":
-        return line_base
+        if re.findall(pattern_for_step_1, line_base, flags=re.IGNORECASE):
+            source_output = checkLine(line_base)
+            return source_output
+        else:
+            return line_base
     else:
-        return source_code
+        return line_base
 
 
 def checkFor(source_code):
@@ -1395,7 +1419,9 @@ def checkFor(source_code):
     for i, line in enumerate(lines):
         # Nếu trong một vòng for
         if inside_for:
-            if "{" in line:
+            if ("{" in line) and ("}" in line):
+                count += 1
+            elif ("{" in line) and ("}" not in line):
                 count += 1
             # Tính toán số ngoặc mở và đóng
             count_braces += line.count("{")
@@ -1415,7 +1441,7 @@ def checkFor(source_code):
                     pattern_for += pattern_for_loop_end
                 matches_pattern = re.findall(pattern_for, lines_for, flags=re.IGNORECASE)
                 if matches_pattern:
-                    lines_for = re.sub(pattern_for, r'FOR \2 IN \3 .. \5 LOOP \n\t   \6\nEND LOOP\n', lines_for,
+                    lines_for = re.sub(pattern_for, r'FOR \2 IN \3 .. \5\n\t LOOP \n\t   \6\nEND LOOP\n', lines_for,
                                        flags=re.IGNORECASE)
                     for j in range(i + 1, len(lines)):
                         line_to_end += "\n" + lines[j]  # Thêm các dòng tiếp theo vào linenew
@@ -1423,8 +1449,10 @@ def checkFor(source_code):
                 return lines_for
         else:
             # Kiểm tra nếu dòng chứa vòng for
-            if "For" in line:
+            if ("For".upper() in line.upper()) and ("{" in line):
                 inside_for = True
+                if "{" in line:
+                    count += 1
                 count_braces += line.count("{")
                 count_braces -= line.count("}")
                 lines_for += line + "\n"
@@ -1441,6 +1469,5 @@ def checkTryCatch(source_code):
 def checkDoWhile(source_code):
     print("checkDoWhile")
 
-
-#result = checkLine(source_code)
-#print(result)
+# result = checkLine(source_code)
+# print("mrd return : ", result)

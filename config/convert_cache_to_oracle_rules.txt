@@ -35,8 +35,8 @@ Quit\s+\-(\w+)|||RETURN -1;\n
 \$LB\(([^)]+)\)|||STRING_ARRAY(\1)
 (\d+)\s*#\s*(\d+)|||MOD(\1,\2)
 (\d+)\s*\\\s*(\d+)|||TRUNC(\1/\2)
-(Set|SET|set)\s*([^=]*)\s*=\s*\"\" |||\2 := NULL;
-(Set|SET|set)\s*([^=]*)\s*=\s*(.*) |||\2 := \3;
+(Set|SET|set)\s*([^=]*)\s*=\s*\"\"|||\2 := NULL;
+(Set|SET|set)\s*([^=]*)\s*=\s*(.*)|||\2:= \3;
 (Set|SET|set)\s*(\w+)\((\d+)\)\s*=\s*(.*)|||\2(\3) := \4
 (Set|SET|set)\s*\$BIT\(([^)]+)\)\s*=\s*(.+)|||COMMON.C_BIT(\2, \3);
 (Set|SET|set)\s*\$Extract\(([^)]+)\)\s*=\s*(.+)|||COMMON.C_EXTRACT(\2, \3);
@@ -65,7 +65,7 @@ Quit\s+\-(\w+)|||RETURN -1;\n
 \$(TRANSLATE|Translate|translate)\(([^)]+)\)|||COMMON.C_TRANSLATE(\2)
 \$ZABS\(([^)]+)\)|||COMMON.C_ZABS(\1)
 \$Get\(([^)]+)\)|||COMMON.C_GET(\1)
-\$LENGTH\(([^)]+)\)|||COMMON.C_LENGTH(\1)
+\$LENGTH\(([^)]+)\)|||COMMON.C_LENGTH(\1)\n\t
 \$ZDATETIME\(([^)]+)\)|||COMMON.C_ZDATETIME(\1)
 \$ZDT\(([^)]+)\)|||COMMON.C_ZDATETIME(\1)
 \$ZDATETIMEH\(([^)]+)\)|||COMMON.C_DATETIMEH(\1)
@@ -79,6 +79,7 @@ Quit\s+\-(\w+)|||RETURN -1;\n
 \$ZZENKAKU\(([^)]+)\)|||COMMON.C_ZZENKAKU(\1)
 \$ZUTIL\(([^)]+)\)|||COMMON.C_ZUTIL(\1)
 \$ZTIMESTAMP|||COMMON.C_ZTIMESTAMP
+\$List\(([^),]+)\,\s*([^,)]*)\)|||\1(\2)
 \$LIST\(([^)]+)\)|||COMMON.C_LIST(\1)
 \$NUMBER\(([^)]+)\)|||COMMON.C_NUMBER(\1)
 \$EXTRACT\(([^)]+)\)|||COMMON.C_EXTRACT(\1)
