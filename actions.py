@@ -1107,7 +1107,7 @@ def convert_editor():
 def convert_comment_pattern(from_code):
     pattern1 = r'(\#\;)([^\n]+)'
     pattern2 = r'(\/\/)([^\n]+)'
-    pattern3 = r'(\;)([^\n]+)'
+    pattern3 = r'(\;)([^\n}]+)'
     to_code_temp = from_code
 
     matchs1 = re.findall(pattern1, from_code.strip())
@@ -1274,6 +1274,7 @@ def process_code(source_code):
     # TH1: Dùng trong các condition -> IS NULL
     # TH2: Dùng để gán giá trị -> := COMMON.C_CHAR(0)
     match_pattern_char1 = r'\s*=\s*(\$C|\$Char)\(([^)]+)\)'
+    match_pattern_char1_2 = r'Set\s*([^=]*)\s*=\s*\$(C|Char)\(0\)'
 
     if matches_if_2:
         source_code = re.sub(pattern_if_2, r'IF \1 THEN \n\t    \2 \n\tEND IF;\n', source_code, flags=re.IGNORECASE)
@@ -1283,9 +1284,11 @@ def process_code(source_code):
         if re.findall(matche_pattern_char0, line, flags=re.IGNORECASE):
             line = re.sub(r"'=\s*\$(C|CHAR)\(0\)", 'IS NOT NULL', line, flags=re.IGNORECASE)
 
+
         if ("If".upper() or ("While").upper() or ("ElseIf").upper() or ("QUIT:").upper()) in line.upper():
             if re.findall(match_pattern_char1, line, flags=re.IGNORECASE):
-                matchs1 = re.findall(match_pattern_char1, line, flags=re.IGNORECASE)
+                if ("if".upper() in line.upper()) and ("set".upper() in line.upper()):
+                    line = re.sub(match_pattern_char1_2, r'\1 := COMMON.C_CHAR(0);', line, flags=re.IGNORECASE)
                 line = re.sub(match_pattern_char1, r' IS NULL', line, flags=re.IGNORECASE)
 
         if "}While".upper() in line.upper():
