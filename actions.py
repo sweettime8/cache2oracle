@@ -1019,8 +1019,6 @@ def convert_editor():
             # convert if else :
             to_code_temp = process_code(to_code_temp)
 
-
-
             # check $$[1] : $$MethodName^RoutineName(param1, param2,...) ex : $$GetMotherInfoLog^Com.MotherUpdateLog(SyohinSeq, piDate, CheckCd)
             pattern_dola_dola_1 = r'\$\$(\w+)\^(\w+)\.(\w+)\((.*?)\)'
             # Tìm các kết hợp phù hợp trong chuỗi và thực hiện chuyển đổi
@@ -1256,6 +1254,9 @@ def process_code(source_code):
     # Do while long nhau
     source_code = checkLineDoWhile(source_code)
 
+    # WHILE lồng nhau
+    source_code = checkLineWhile(source_code)
+
     # check với biểu thức IF nằm trong 1 dòng và không có {}, có set:
     pattern_if_0 = r'If\s+([^\n{]+)\s*(Set)\s*([^\n]*)'
     matches_if_0 = re.findall(pattern_if_0, source_code.strip(), flags=re.IGNORECASE)
@@ -1383,6 +1384,100 @@ def process_code(source_code):
     return result
 
 
+def checkLineWhile(source_code):
+    print("checkLineWhile")
+    source_code = source_code.replace("\n\n", "\n")
+    pattern_while = r'While\s*\((.*?)\)\s*{([\s\S]*?)}'
+    if not re.findall(pattern_while, source_code, flags=re.IGNORECASE):
+        return source_code
+    lines = source_code.split('\n')
+    line_base = ""
+    line_new = ""
+    index_line = 0
+    for i, line in enumerate(lines):
+        if line.strip() == "":
+            index_line = i
+        if ("While".upper() not in line.upper()) and ("{" not in line):
+            line_base += line + "\n"
+            index_line = i
+
+        elif "While".upper() in line.upper() and "{" in line:
+            line_new = line  # Bắt đầu từ dòng có "While"
+            for j in range(i + 1, len(lines)):
+                line_new += "\n" + lines[j]  # Thêm các dòng tiếp theo vào linenew
+            line_base += checkWhile(line_new)
+            index_line = i
+            line_base = line_base.replace("\n\n", "\n")
+            break
+        else:
+            line_base += line + "\n"
+            line_base = line_base.replace("\n\n", "\n")
+            index_line = i
+
+    if (index_line + 1 < len(lines)):
+        match_pattern_while = re.findall(pattern_while, line_base, flags=re.IGNORECASE)
+        if match_pattern_while:
+            source_output = checkLineWhile(line_base)
+            return source_output
+        else:
+            return line_base
+    else:
+        return line_base
+
+
+def checkWhile(source_code):
+    print("checkWhile Function")
+    count_braces = 0
+    inside_while = False
+    lines_while = ""
+    lines = source_code.split('\n')
+    count = 0
+    pattern_do = 'While\s*([^{]*)\s*{('
+    pattern_do_loop = '([\s\S]*?)\}'
+    pattern_do_loop_end = '([\s\S]*?)\})'
+    line_to_end = ""
+    for i, line in enumerate(lines):
+        # Nếu trong một vòng DO
+        if inside_while:
+            if ("{" in line) and ("}" in line):
+                count += 1
+            elif ("{" in line) and ("}" not in line):
+                count += 1
+            # Tính toán số ngoặc mở và đóng
+            count_braces += line.count("{")
+            count_braces -= line.count("}")
+            lines_while += line + "\n"
+            # Nếu số ngoặc mở và đóng bằng nhau, vòng WHILE kết thúc
+            if count_braces == 0:
+                inside_for = False
+                if count > 0:
+                    for x in range(count):
+                        print("While = " + str(x))
+                        if x < count - 1:
+                            pattern_do += pattern_do_loop
+                        else:
+                            pattern_do += pattern_do_loop_end
+                else:
+                    pattern_do += pattern_do_loop_end
+                matches_pattern = re.findall(pattern_do, lines_while, flags=re.IGNORECASE)
+                if matches_pattern:
+                    lines_while = re.sub(pattern_do, r'WHILE \1 \n\tLOOP\n  \2 \nEND LOOP;', lines_while,
+                                      flags=re.IGNORECASE)
+                    for j in range(i + 1, len(lines)):
+                        line_to_end += "\n" + lines[j]  # Thêm các dòng tiếp theo vào linenew
+                    lines_while += "\n" + line_to_end
+                return lines_while
+        else:
+            # Kiểm tra nếu dòng chứa vòng for
+            if ("WHILE".upper() in line.upper()) and ("{" in line):
+                inside_while = True
+                if ("{" in line):
+                    count += 1
+                count_braces += line.count("{")
+                count_braces -= line.count("}")
+                lines_while += line + "\n"
+
+
 def checkLineDoWhile(source_code):
     source_code = source_code.replace("\n\n", "\n")
     pattern_do_while = r'(Do)\s*\{([\s\S]*?)\}\s*While\s*([^\n]*)'
@@ -1413,7 +1508,7 @@ def checkLineDoWhile(source_code):
             index_line = i
 
     if (index_line + 1 < len(lines)):
-        match_pattern_do_while =  re.findall(pattern_do_while, line_base, flags=re.IGNORECASE)
+        match_pattern_do_while = re.findall(pattern_do_while, line_base, flags=re.IGNORECASE)
         if match_pattern_do_while:
             source_output = checkLineDoWhile(line_base)
             return source_output
@@ -1468,11 +1563,12 @@ def checkDoWhile(source_code):
             # Kiểm tra nếu dòng chứa vòng for
             if ("do".upper() in line.upper()) and ("{" in line):
                 inside_do = True
-                if ("{" in line) and ("while".upper() in line) :
+                if ("{" in line) and ("while".upper() in line):
                     count += 1
                 count_braces += line.count("{")
                 count_braces -= line.count("}")
                 lines_do += line + "\n"
+
 
 def checkLineFor1(source_code):
     source_code = source_code.replace("\n\n", "\n")
@@ -1670,7 +1766,6 @@ def checkIfElse(source_code):
 
 def checkTryCatch(source_code):
     print("checkTryCatch")
-
 
 # result = checkLine(source_code)
 # print("mrd return : ", result)
