@@ -1,7 +1,11 @@
+Set\s*([^=\n\s*]*)\s*=\s*\$(C|CHAR)\(([^)]+)\)|||\1 := COMMON.C_CHAR(\3);
+(Set|SET|set)\s*\$BIT\(([^)]+)\)\s*\=\s*([^\n]*)|||COMMON.C_BIT(\2, \3);
+(Set|SET|set)\s*\$Extract\(([^)]+)\)\s*\=\s*([^\n]*)|||COMMON.C_EXTRACT(\2, \3);
+(Set|SET|set)\s*\$PIECE\(([^)]+)\)\s*=\s*(.+)|||COMMON.C_PIECE(\2, \3);
 Set\s*(([^=]*))\s*=\s*\$CASE\(([^,]*)\s*,\s*([^:\s*]*)\s*:([^,]*)\s*,\s*([^:\s*]*)\s*:([^,]*)\s*,\s*:([^)]*)\)|||\1:= CASE WHEN \4 THEN \5 \n\t\t WHEN \6 THEN \7 \n\t\t ELSE \8 \n\t\t END;
 Set\s*(([^=]*))\s*=\s*\$CASE\(([^,]*)\s*,\s*([^:\s*]*)\s*:([^,]*)\s*,\s*:([^)]*)\)|||\1:= CASE WHEN \4 THEN \5 \n\t\t ELSE \6 \n\t\t END;
-Set\s*([^=\s*]*)\s*=\s*([^,]*),\s*([^=\s*]*)\s*=\s*([^,]*),\s*([^=\s*]*)\s*=\s*([^,\n]*)\s*\n|||\1 := \2, \3 := \4, \5 := \6;\n
-Set\s*([^=\s*]*)\s*=\s*([^,]*),\s*([^=\s*]*)\s*=\s*([^,\n]*)\s*\n|||\1 := \2, \3 := \4;\n
+Set\s*([^=\s*]*)\s*=\s*([^,]*),\s*([^=\s*]*)\s*=\s*([^,]*),\s*([^=\s*]*)\s*=\s*([^,\n]*)\s*\n|||\1 := \2; \3 := \4; \5 := \6;\n
+Set\s*([^=\s*]*)\s*=\s*([^,]*),\s*([^=\s*]*)\s*=\s*([^,\n]*)\s*\n|||\1 := \2; \3 := \4;\n
 (Do)\s*\{([\s\S]*?)\}\s*While\s*([^\n]*)|||LOOP\n\t  \2 \n\t EXIT WHEN NOT \3 \n END LOOP
 (Do|do|DO)\s+((\w+)\^(\w+)\(([^)]*\)))|||\4_MAC.\3(\5
 Do\s+([^\s({]+)(?=\s|$)|||\1()
@@ -28,22 +32,16 @@ For\s*\{([\s\S]*?)\}|||LOOP\n  \1 \nEND LOOP;
 \$\$\$OK|||1
 Goto:([^\s+]*)\s*([^\n]*)|||IF \1 THEN\n\t GOTO \2 \nEND IF;
 Goto\s*([^\n\s*]*)|||Goto \1;
-\$\$\$([A-Za-z0-9]+)|||COMMON.GET_CONSTANT('\1',INCLUDE_LIST)
 Quit:([^\n]+)|||IF \1 THEN\n\n    EXIT;\n\nEND IF;\n
 Quit\s*\n|||RETURN\n
 Quit\s+(\w+)|||RETURN \1;\n
 Quit\s+\-(\w+)|||RETURN -1;\n
 (\$HOROLOG)|||COMMON.C_HOROLOG
-(\$C)\(([^)]+)\)|||COMMON.C_CHAR(\2)
-(\$Char)\(([^)]+)\)|||COMMON.C_CHAR(\2)
 \$LISTBUILD\(([^)]+)\)|||STRING_ARRAY(\1)
 \$ListBuild\(([^)]+)\)|||STRING_ARRAY(\1)
 \$LB\(([^)]+)\)|||STRING_ARRAY(\1)
 ([A-Za-z0-9]+)\s*#\s*([A-Za-z0-9]+)|||MOD(\1,\2)
 ([A-Za-z0-9]+)\s*\\\s*([A-Za-z0-9]+)|||TRUNC(\1/\2)
-(Set|SET|set)\s*\$BIT\(([^)]+)\)\s*\=\s*([^\n]*)|||COMMON.C_BIT(\2, \3);
-(Set|SET|set)\s*\$Extract\(([^)]+)\)\s*\=\s*([^\n]*)|||COMMON.C_EXTRACT(\2, \3);
-(Set|SET|set)\s*\$PIECE\(([^)]+)\)\s*=\s*(.+)|||COMMON.C_PIECE(\2, \3);
 (Set|SET|set)\s*([^=]*)\s*=\s*\"\"|||\2 := NULL;
 (Set|SET|set)\s*([^=]*)\s*=\s*(.*)|||\2:= \3;
 (Set|SET|set)\s*(\w+)\((\d+)\)\s*=\s*(.*)|||\2(\3) := \4
@@ -77,7 +75,7 @@ Quit\s+\-(\w+)|||RETURN -1;\n
 \$ZDATETIMEH\(([^)]+)\)|||COMMON.C_DATETIMEH(\1)
 \$ZCONVERT\(([^)]+)\)|||COMMON.C_ZCONVERT(\1)
 \$ZCVT\(([^)]+)\)|||COMMON.C_ZCONVERT(\1)
-\$(ZDATEH|ZDateH|zdateh)\(([^,]*)\s*\,\s*([^,]),,,,,,,\s*([^)]*)\)|||COMMON.C_DATEH(\2,\3,\1)
+\$(ZDATEH|ZDateH|zdateh)\(([^,]*)\s*\,\s*([^,]),,,,,,,\s*([^)]*)\)|||COMMON.C_DATEH(\2,\3,\4)
 \$ZDH\(([^)]+)\)|||COMMON.C_DATEH(\1)
 \$ZDATE\(([^)]+)\)|||COMMON.C_DATE(\1)
 \$ZPOWER\(([^)]+)\)|||COMMON.C_ZPOWER(\1)
@@ -88,6 +86,7 @@ Quit\s+\-(\w+)|||RETURN -1;\n
 \$ZTIMESTAMP|||COMMON.C_ZTIMESTAMP
 \$List\(([^),]+)\,\s*([^,)]*)\)|||\1(\2)
 \$LIST\(([^)]+)\)|||COMMON.C_LIST(\1)
+\$\$\$([A-Za-z0-9]+)|||COMMON.GET_CONSTANT('\1',INCLUDE_LIST)
 \$NUMBER\(([^)]+)\)|||COMMON.C_NUMBER(\1)
 \$EXTRACT\(([^)]+)\)|||COMMON.C_EXTRACT(\1)
 \$E\(([^)]+)\)|||COMMON.C_EXTRACT(\1)
@@ -104,6 +103,6 @@ Quit\s+\-(\w+)|||RETURN -1;\n
 \$TLEVEL|||COMMON.C_TLEVEL
 \$(ZNAME|ZN)|||PACKAGE_NAME
 \$ZSTRIP|||COMMON.C_ZSTRIP
-\$DOUBLE\(([^)]*)\)|||TO_BINARY_DOUBLE(num)
+\$DOUBLE\(([^)]*)\)|||TO_BINARY_DOUBLE(\1)
 TROLLBACK|||ROLLBACK [TODO];
 Write "([^"]*)", (\w+), !|||DBMS_OUTPUT.PUT_LINE('\1' || NVL(\2) || CHR(10));

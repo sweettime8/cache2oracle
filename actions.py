@@ -1007,17 +1007,19 @@ def convert_editor():
             to_code_temp = re.sub(r'_', r'||', from_code)
 
             # Convert comment /* */ multiline
-            pattern_comment_mutil_line = r'(\/\*\s*\n([^*]*)\s*\n\*\/)'
+            pattern_comment_mutil_line = r'(\/\*\s*([^*]*)\s*\*\/)'
             matchs_comment_mutil_line = re.findall(pattern_comment_mutil_line, to_code_temp)
             if matchs_comment_mutil_line:
                 for match_comment_mutil_line in matchs_comment_mutil_line:
                     to_code_temp = to_code_temp.replace(match_comment_mutil_line[0], "")  # mrd
 
+            # Convert comment #; /// ;
+            to_code_temp = convert_comment_pattern(to_code_temp)
+
             # convert if else :
             to_code_temp = process_code(to_code_temp)
 
-            # Convert comment #; /// ;
-            to_code_temp = convert_comment_pattern(to_code_temp)
+
 
             # check $$[1] : $$MethodName^RoutineName(param1, param2,...) ex : $$GetMotherInfoLog^Com.MotherUpdateLog(SyohinSeq, piDate, CheckCd)
             pattern_dola_dola_1 = r'\$\$(\w+)\^(\w+)\.(\w+)\((.*?)\)'
@@ -1277,21 +1279,26 @@ def process_code(source_code):
 
     # TH1: Dùng trong các condition -> IS NULL
     # TH2: Dùng để gán giá trị -> := COMMON.C_CHAR(0)
-    match_pattern_char1 = r'\s*=\s*(\$C|\$Char)\(([^)]+)\)'
-    match_pattern_char1_2 = r'Set\s*([^=]*)\s*=\s*\$(C|Char)\(0\)'
+    match_pattern_char1 = r'\s*=\s*(\$C|\$Char)\(0\)'
+    match_pattern_char1_2 = r'Set\s*([^=]*)\s*=\s*\$(C|Char)\(([^)]*)\)'
 
     if matches_if_2:
         source_code = re.sub(pattern_if_2, r'IF \1 THEN \n\t    \2 \n\tEND IF;\n', source_code, flags=re.IGNORECASE)
 
     code_lines = source_code.split('\n')
     for line in code_lines:
+        # if (re.findall(pattern3, line.strip())) and (("if".upper or "else".upper() or "elseif") not in line.upper()):
+        if re.findall(pattern3, line.strip(), flags=re.IGNORECASE):
+            line = re.sub(pattern3, r'--\2', line.strip(), flags=re.IGNORECASE)
+            processed_code.append(line)
+            continue
         if re.findall(matche_pattern_char0, line, flags=re.IGNORECASE):
             line = re.sub(r"'=\s*\$(C|CHAR)\(0\)", 'IS NOT NULL', line, flags=re.IGNORECASE)
 
         if ("If".upper() or ("While").upper() or ("ElseIf").upper() or ("QUIT:").upper()) in line.upper():
             if re.findall(match_pattern_char1, line, flags=re.IGNORECASE):
                 if ("if".upper() in line.upper()) and ("set".upper() in line.upper()):
-                    line = re.sub(match_pattern_char1_2, r'\1 := COMMON.C_CHAR(0);', line, flags=re.IGNORECASE)
+                    line = re.sub(match_pattern_char1_2, r'\1 := COMMON.C_CHAR(\3);', line, flags=re.IGNORECASE)
                 line = re.sub(match_pattern_char1, r' IS NULL', line, flags=re.IGNORECASE)
 
         if ("}While".upper() in line.upper()) or ("} While".upper() in line.upper()):
@@ -1313,11 +1320,7 @@ def process_code(source_code):
         if re.findall(pattern2, line.strip()):
             processed_code.append(line)
             continue
-        # if (re.findall(pattern3, line.strip())) and (("if".upper or "else".upper() or "elseif") not in line.upper()):
-        if re.findall(pattern3, line.strip(), flags=re.IGNORECASE):
-            line = re.sub(pattern3, r'--\2', line.strip(), flags=re.IGNORECASE)
-            processed_code.append(line)
-            continue
+
         if ("If ".upper() in line.upper()) and ("ElseIf".upper() not in line.upper()):
             if "{" in line:
                 if "IF " in line:
