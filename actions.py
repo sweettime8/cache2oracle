@@ -1007,7 +1007,7 @@ def convert_editor():
             to_code_temp = re.sub(r'_', r'||', from_code)
 
             # Convert comment /* */ multiline
-            pattern_comment_mutil_line = r'(\/\*\s*([^*]*)\s*\*\/)'
+            pattern_comment_mutil_line = r'(\/\*\s*([^*]*)\s*\n\*\/)'
             matchs_comment_mutil_line = re.findall(pattern_comment_mutil_line, to_code_temp)
             if matchs_comment_mutil_line:
                 for match_comment_mutil_line in matchs_comment_mutil_line:
@@ -1031,7 +1031,7 @@ def convert_editor():
 
             # check $$ [2] $$MethodName(param1, param2,...)
             # input -> $$MethodName(param1, param2,.param3,.param4) -> $$MethodName(param1, param2, param3, param4)
-            pattern_dola_dola_2 = r'\$\$([^\s(\^]+)\(([^)]+)'
+            pattern_dola_dola_2 = r'\$\$([^\s(\^@]+)\(([^)]+)'
             to_code_temp = convert_from_pattern_dola_dola_2(pattern_dola_dola_2, to_code_temp)
 
             # check Do[3] : Do MethodName^RoutineName(param, ...) -> ROUTINE_NAME_MAC.MethodName(param1, param2,...)
@@ -1111,11 +1111,11 @@ def convert_comment_pattern(from_code):
     pattern3 = r'(\;)([^\n}]+)'
     to_code_temp = from_code
 
-    matchs1 = re.findall(pattern1, from_code.strip())
-    for match1 in matchs1:
-        input_str1 = match1[0] + match1[1]
-        output_str1 = "--" + match1[1]
-        to_code_temp = to_code_temp.replace(input_str1, output_str1)
+    # matchs1 = re.findall(pattern1, from_code.strip())
+    # for match1 in matchs1:
+    #     input_str1 = match1[0] + match1[1]
+    #     output_str1 = "--" + match1[1]
+    #     to_code_temp = to_code_temp.replace(input_str1, output_str1)
 
     matchs2 = re.findall(pattern2, to_code_temp.strip())
     for match2 in matchs2:
@@ -1123,11 +1123,11 @@ def convert_comment_pattern(from_code):
         output_str2 = "--" + match2[1]
         to_code_temp = to_code_temp.replace(input_str2, output_str2)
 
-    matchs3 = re.findall(pattern3, to_code_temp.strip())
-    for match3 in matchs3:
-        input_str3 = match3[0] + match3[1]
-        output_str3 = "--" + match3[1]
-        to_code_temp = to_code_temp.replace(input_str3, output_str3)
+    # matchs3 = re.findall(pattern3, to_code_temp.strip())
+    # for match3 in matchs3:
+    #     input_str3 = match3[0] + match3[1]
+    #     output_str3 = "--" + match3[1]
+    #     to_code_temp = to_code_temp.replace(input_str3, output_str3)
 
     return to_code_temp
 
@@ -1286,8 +1286,30 @@ def process_code(source_code):
     if matches_if_2:
         source_code = re.sub(pattern_if_2, r'IF \1 THEN \n\t    \2 \n\tEND IF;\n', source_code, flags=re.IGNORECASE)
 
+    # Set piUserKey = asdasdasd , piUserKey = asdasdasd
+    pattern_multi_set_2 = r'Set\s*([^=\s*]*)\s*=\s*([^,]*),\s*([^=\s*]*)\s*=\s*([^,\n]*)\s*'
+    # Set piUserKey = asdasdasd , piUserKey = asdasdasd ,piUserKey = asdasdasd
+    pattern_multi_set_3 = r'Set\s*([^=\s*]*)\s*=\s*([^,]*),\s*([^=\s*]*)\s*=\s*([^,]*),\s*([^=\s*]*)\s*=\s*([^,\n]*)\s*'
+
+    # check $$$ConstantName và ko được match @$$$ConstantName@(param1, param2,...)
+    pattern_dola_dola_dola_1 = r'\$\$\$([A-Za-z0-9]+)'
+
     code_lines = source_code.split('\n')
     for line in code_lines:
+        if re.findall(pattern_multi_set_3, line.strip(), flags=re.IGNORECASE):
+            line = re.sub(pattern_multi_set_3, r'\1 := \2; \3 := \4; \5 := \6;', line.strip(), flags=re.IGNORECASE)
+            processed_code.append(line)
+            continue
+        if re.findall(pattern_multi_set_2, line.strip(), flags=re.IGNORECASE):
+            line = re.sub(pattern_multi_set_2, r'\1 := \2; \3 := \4;', line.strip(), flags=re.IGNORECASE)
+            processed_code.append(line)
+            continue
+        if re.findall(pattern_dola_dola_dola_1, line.strip(), flags=re.IGNORECASE):
+            if "@$$$" not in line:
+                line = re.sub(pattern_dola_dola_dola_1, r"COMMON.GET_CONSTANT('\1',INCLUDE_LIST)", line.strip(),
+                              flags=re.IGNORECASE)
+            processed_code.append(line)
+            continue
         # if (re.findall(pattern3, line.strip())) and (("if".upper or "else".upper() or "elseif") not in line.upper()):
         if re.findall(pattern3, line.strip(), flags=re.IGNORECASE):
             line = re.sub(pattern3, r'--\2', line.strip(), flags=re.IGNORECASE)
@@ -1387,7 +1409,7 @@ def process_code(source_code):
 def checkLineWhile(source_code):
     print("checkLineWhile")
     source_code = source_code.replace("\n\n", "\n")
-    pattern_while = r'While\s*\((.*?)\)\s*{([\s\S]*?)}'
+    pattern_while = r'While\s*([^{]*)\s*{(([\s\S]*?))\}'
     if not re.findall(pattern_while, source_code, flags=re.IGNORECASE):
         return source_code
     lines = source_code.split('\n')
@@ -1462,7 +1484,7 @@ def checkWhile(source_code):
                 matches_pattern = re.findall(pattern_do, lines_while, flags=re.IGNORECASE)
                 if matches_pattern:
                     lines_while = re.sub(pattern_do, r'WHILE \1 \n\tLOOP\n  \2 \nEND LOOP;', lines_while,
-                                      flags=re.IGNORECASE)
+                                         flags=re.IGNORECASE)
                     for j in range(i + 1, len(lines)):
                         line_to_end += "\n" + lines[j]  # Thêm các dòng tiếp theo vào linenew
                     lines_while += "\n" + line_to_end
