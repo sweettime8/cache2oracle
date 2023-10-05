@@ -1044,8 +1044,9 @@ def convert_editor():
                     m_do3_package = match_do_3[1].upper()
                     m_do3_routine = match_do_3[2]
                     m_do3_param = match_do_3[3]
-                    input_str_do3 = "Do " + match_do_3[0] + "^" + match_do_3[1] + "." + match_do_3[2] + "(" + match_do_3[
-                        3] + ")"
+                    input_str_do3 = "Do " + match_do_3[0] + "^" + match_do_3[1] + "." + match_do_3[2] + "(" + \
+                                    match_do_3[
+                                        3] + ")"
                     m_do3_routine = ''.join(['_' + c if c.isupper() else c for c in m_do3_routine]).lstrip('_')
                     m_do3_routine = m_do3_routine.upper()
                     # kiểm tra xem param có . không, nếu có remove đi
@@ -1068,7 +1069,7 @@ def convert_editor():
                     output_class_name = ''.join(['_' + c if c.isupper() else c for c in m_do4_class_name]).lstrip('_')
                     output_class_name = output_class_name.upper() + "_CLS"
                     output_str_do_4 = output_class_name + "." + m_do4_method_name + m_do4_param
-                    input_str_do4 = match_do_4[0]+"(" + match_do_4[1] + ")" + "." + m_do4_method_name + m_do4_param
+                    input_str_do4 = match_do_4[0] + "(" + match_do_4[1] + ")" + "." + m_do4_method_name + m_do4_param
 
                     to_code_temp = to_code_temp.replace(input_str_do4, output_str_do_4)
 
@@ -1197,7 +1198,7 @@ def read_conversion_rules_from_file(file_path):
 
 
 def convert_cache_to_oracle(cache_code, conversion_rules):
-    oracle_code = cache_code.strip()
+    oracle_code = cache_code
 
     for rule in conversion_rules:
         cache_pattern, oracle_replace = rule
@@ -1250,6 +1251,9 @@ def process_code(source_code):
     # For[1] lồng nhau
     source_code = checkLineFor1(source_code)
 
+    # Do while long nhau
+    source_code = checkLineDoWhile(source_code)
+
     # check với biểu thức IF nằm trong 1 dòng và không có {}, có set:
     pattern_if_0 = r'If\s+([^\n{]+)\s*(Set)\s*([^\n]*)'
     matches_if_0 = re.findall(pattern_if_0, source_code.strip(), flags=re.IGNORECASE)
@@ -1284,14 +1288,16 @@ def process_code(source_code):
         if re.findall(matche_pattern_char0, line, flags=re.IGNORECASE):
             line = re.sub(r"'=\s*\$(C|CHAR)\(0\)", 'IS NOT NULL', line, flags=re.IGNORECASE)
 
-
         if ("If".upper() or ("While").upper() or ("ElseIf").upper() or ("QUIT:").upper()) in line.upper():
             if re.findall(match_pattern_char1, line, flags=re.IGNORECASE):
                 if ("if".upper() in line.upper()) and ("set".upper() in line.upper()):
                     line = re.sub(match_pattern_char1_2, r'\1 := COMMON.C_CHAR(0);', line, flags=re.IGNORECASE)
                 line = re.sub(match_pattern_char1, r' IS NULL', line, flags=re.IGNORECASE)
 
-        if "}While".upper() in line.upper():
+        if ("}While".upper() in line.upper()) or ("} While".upper() in line.upper()):
+            processed_code.append(line)
+            continue
+        if ("Do {".upper() or "Do{".upper() or "do {".upper() or "do{".upper()) in line.upper():
             processed_code.append(line)
             continue
         if ("IF" in line.upper() and "THEN" in line.upper()) or ("END IF;" in line.upper()):
@@ -1351,13 +1357,7 @@ def process_code(source_code):
                 processed_code.append(" " * (len(stack) - 1) * 4 + f"ELSIF {condition} ")
             else:
                 processed_code.append(" " * len(stack) * 4 + f"ELSIF {condition} ")
-            # if "}" in line:
-            #     if stack:
-            #         stack.pop()  # Kết thúc một cấp độ
-            #     processed_code.append(" " * len(stack) * 4 + "ELSIF")
-            #     stack.append(True)  # Bắt đầu một cấp độ mới
-            # else:
-            #     processed_code[-1] += " ELSIF"
+
         elif "}" in line:
             if stack:
                 line = line.replace("}", "")
@@ -1380,32 +1380,96 @@ def process_code(source_code):
     return result
 
 
-source_code = """
-    Set No = No + 1
-    Set No = No + 1
-    For i=1:1:$Length(ducnh_1) {    
-        Set $List(ExpDataStock,  $$$tmpExpDataStockListMotherInfo + No) = $ListGet(SyohinMotherInfo, i)
-        Set No = No + 1
-        For i=1:1:$Length(ducnh_2) {  
-            If ($$SetPrintJyok(piUserKey, piHospCd) = 0){
-				Set cnt = 1
-				Do {
-										
-					Set cnt = cnt +1
-					}While(cnt <= PrintCnt)
-			}
-        }
-        For i=1:1:$Length(ducnh_3) {  
-            Set No = No + 1
-        }     
-    } 
-    For i=1:1:$Length(ducnh_4) {  
-            Set No = No + 1
-    }    
-"""
+def checkLineDoWhile(source_code):
+    source_code = source_code.replace("\n\n", "\n")
+    pattern_do_while = r'(Do)\s*\{([\s\S]*?)\}\s*While\s*([^\n]*)'
+    if not re.findall(pattern_do_while, source_code, flags=re.IGNORECASE):
+        return source_code
+    lines = source_code.split('\n')
+    line_base = ""
+    line_new = ""
+    index_line = 0
+    for i, line in enumerate(lines):
+        if line.strip() == "":
+            index_line = i
+        if ("do".upper() not in line.upper()) and ("{" not in line):
+            line_base += line + "\n"
+            index_line = i
 
-output_source = ""
+        elif "Do".upper() in line.upper() and "{" in line:
+            line_new = line  # Bắt đầu từ dòng có "Do"
+            for j in range(i + 1, len(lines)):
+                line_new += "\n" + lines[j]  # Thêm các dòng tiếp theo vào linenew
+            line_base += checkDoWhile(line_new)
+            index_line = i
+            line_base = line_base.replace("\n\n", "\n")
+            break
+        else:
+            line_base += line + "\n"
+            line_base = line_base.replace("\n\n", "\n")
+            index_line = i
 
+    if (index_line + 1 < len(lines)):
+        match_pattern_do_while =  re.findall(pattern_do_while, line_base, flags=re.IGNORECASE)
+        if match_pattern_do_while:
+            source_output = checkLineDoWhile(line_base)
+            return source_output
+        else:
+            return line_base
+    else:
+        return line_base
+
+
+def checkDoWhile(source_code):
+    print("checkDoWhile Function")
+    count_braces = 0
+    inside_do = False
+    lines_do = ""
+    lines = source_code.split('\n')
+    line_base_for = ""
+    count = 0
+    pattern_do = '(Do)\s*{('
+    pattern_do_loop = '[\s\S]*?}\s*While\s*[^\n]*'
+    pattern_do_loop_end = ')([\s\S]*?)}\s*(While)\s*([^\n]*)'
+    line_to_end = ""
+    for i, line in enumerate(lines):
+        # Nếu trong một vòng DO
+        if inside_do:
+            if ("}" in line) and ("while".upper() in line.upper()):
+                count += 1
+            # Tính toán số ngoặc mở và đóng
+            count_braces += line.count("{")
+            count_braces -= line.count("}")
+            lines_do += line + "\n"
+            # Nếu số ngoặc mở và đóng bằng nhau, vòng for kết thúc
+            if count_braces == 0:
+                inside_for = False
+                if count > 0:
+                    for x in range(count):
+                        print("DoWhile = " + str(x))
+                        if x < count - 1:
+                            pattern_do += pattern_do_loop
+                        else:
+                            pattern_do += pattern_do_loop_end
+                else:
+                    pattern_do += pattern_do_loop_end
+                matches_pattern = re.findall(pattern_do, lines_do, flags=re.IGNORECASE)
+                if matches_pattern:
+                    lines_do = re.sub(pattern_do, r'LOOP\n\t  \2\3 \n\t EXIT WHEN NOT \5 \n END LOOP;', lines_do,
+                                      flags=re.IGNORECASE)
+                    for j in range(i + 1, len(lines)):
+                        line_to_end += "\n" + lines[j]  # Thêm các dòng tiếp theo vào linenew
+                    lines_do += "\n" + line_to_end
+                return lines_do
+        else:
+            # Kiểm tra nếu dòng chứa vòng for
+            if ("do".upper() in line.upper()) and ("{" in line):
+                inside_do = True
+                if ("{" in line) and ("while".upper() in line) :
+                    count += 1
+                count_braces += line.count("{")
+                count_braces -= line.count("}")
+                lines_do += line + "\n"
 
 def checkLineFor1(source_code):
     source_code = source_code.replace("\n\n", "\n")
@@ -1486,7 +1550,7 @@ def checkFor1(source_code):
                     pattern_for += pattern_for_loop_end
                 matches_pattern = re.findall(pattern_for, lines_for, flags=re.IGNORECASE)
                 if matches_pattern:
-                    lines_for = re.sub(pattern_for, r'LOOP\n  \1 \nEND LOOP;', lines_for,
+                    lines_for = re.sub(pattern_for, r'LOOP\n  \1 \nEND LOOP;\n', lines_for,
                                        flags=re.IGNORECASE)
                     for j in range(i + 1, len(lines)):
                         line_to_end += "\n" + lines[j]  # Thêm các dòng tiếp theo vào linenew
@@ -1580,7 +1644,7 @@ def checkFor(source_code):
                     pattern_for += pattern_for_loop_end
                 matches_pattern = re.findall(pattern_for, lines_for, flags=re.IGNORECASE)
                 if matches_pattern:
-                    lines_for = re.sub(pattern_for, r'FOR \2 IN \3 .. \5\n\t LOOP \n\t   \6\nEND LOOP\n', lines_for,
+                    lines_for = re.sub(pattern_for, r'FOR \2 IN \3 .. \5\n\t LOOP \n\t   \6\nEND LOOP;\n', lines_for,
                                        flags=re.IGNORECASE)
                     for j in range(i + 1, len(lines)):
                         line_to_end += "\n" + lines[j]  # Thêm các dòng tiếp theo vào linenew
@@ -1604,9 +1668,6 @@ def checkIfElse(source_code):
 def checkTryCatch(source_code):
     print("checkTryCatch")
 
-
-def checkDoWhile(source_code):
-    print("checkDoWhile")
 
 # result = checkLine(source_code)
 # print("mrd return : ", result)

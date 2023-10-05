@@ -1,4 +1,8 @@
-(Do|do|DO)\s*\{([\s\S]*?)\}\s*(While|while|WHILE)\s*\(([^)]+)\)|||LOOP\n\t  \2 \n\t EXIT WHEN NOT \4 \n END LOOP
+Set\s*(([^=]*))\s*=\s*\$CASE\(([^,]*)\s*,\s*([^:\s*]*)\s*:([^,]*)\s*,\s*([^:\s*]*)\s*:([^,]*)\s*,\s*:([^)]*)\)|||\1:= CASE WHEN \4 THEN \5 \n\t\t WHEN \6 THEN \7 \n\t\t ELSE \8 \n\t\t END;
+Set\s*(([^=]*))\s*=\s*\$CASE\(([^,]*)\s*,\s*([^:\s*]*)\s*:([^,]*)\s*,\s*:([^)]*)\)|||\1:= CASE WHEN \4 THEN \5 \n\t\t ELSE \6 \n\t\t END;
+Set\s*([^=\s*]*)\s*=\s*([^,]*),\s*([^=\s*]*)\s*=\s*([^,]*),\s*([^=\s*]*)\s*=\s*([^,\n]*)\s*\n|||\1 := \2, \3 := \4, \5 := \6;\n
+Set\s*([^=\s*]*)\s*=\s*([^,]*),\s*([^=\s*]*)\s*=\s*([^,\n]*)\s*\n|||\1 := \2, \3 := \4;\n
+(Do)\s*\{([\s\S]*?)\}\s*While\s*([^\n]*)|||LOOP\n\t  \2 \n\t EXIT WHEN NOT \3 \n END LOOP
 (Do|do|DO)\s+((\w+)\^(\w+)\(([^)]*\)))|||\4_MAC.\3(\5
 Do\s+([^\s({]+)(?=\s|$)|||\1()
 (Do\s+(\w+))(\s+|\([^)]*\))|||\2\3
@@ -79,6 +83,7 @@ Quit\s+\-(\w+)|||RETURN -1;\n
 \$ZPOWER\(([^)]+)\)|||COMMON.C_ZPOWER(\1)
 \$ZWIDTH\(([^)]+)\)|||COMMON.C_ZWIDTH(\1)
 \$ZZENKAKU\(([^)]+)\)|||COMMON.C_ZZENKAKU(\1)
+\$ZUTIL\(193,\$ztimestamp\)|||COMMON.C_ZUTIL(193)
 \$ZUTIL\(([^)]+)\)|||COMMON.C_ZUTIL(\1)
 \$ZTIMESTAMP|||COMMON.C_ZTIMESTAMP
 \$List\(([^),]+)\,\s*([^,)]*)\)|||\1(\2)
@@ -98,5 +103,7 @@ Quit\s+\-(\w+)|||RETURN -1;\n
 \$ZTIME\(([^)]+)\)|||COMMON.C_TIME(\1)
 \$TLEVEL|||COMMON.C_TLEVEL
 \$(ZNAME|ZN)|||PACKAGE_NAME
+\$ZSTRIP|||COMMON.C_ZSTRIP
 \$DOUBLE\(([^)]*)\)|||TO_BINARY_DOUBLE(num)
+TROLLBACK|||ROLLBACK [TODO];
 Write "([^"]*)", (\w+), !|||DBMS_OUTPUT.PUT_LINE('\1' || NVL(\2) || CHR(10));
