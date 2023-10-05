@@ -1434,7 +1434,7 @@ def checkWhile(source_code):
     count = 0
     pattern_do = 'While\s*([^{]*)\s*{('
     pattern_do_loop = '([\s\S]*?)\}'
-    pattern_do_loop_end = '([\s\S]*?)\})'
+    pattern_do_loop_end = '([\s\S]*?))\}'
     line_to_end = ""
     for i, line in enumerate(lines):
         # Nếu trong một vòng DO
