@@ -1242,6 +1242,11 @@ def process_code(source_code):
             continue
     result_new = ""
     for line_new in new_source:
+        if "While".upper() in line_new.upper():
+            if "||" in line_new:
+                line_new = line_new.replace("||", "OR")
+            if "&&" in line_new:
+                line_new = line_new.replace("&&", "AND")
         result_new += line_new + "\n"
 
     source_code = result_new
@@ -1319,18 +1324,30 @@ def process_code(source_code):
             line = re.sub(r"'=\s*\$(C|CHAR)\(0\)", 'IS NOT NULL', line, flags=re.IGNORECASE)
 
         if ("If".upper() or ("While").upper() or ("ElseIf").upper() or ("QUIT:").upper()) in line.upper():
+            if "||" in line:
+                line = line.replace("||", "OR")
+            if "&&" in line:
+                line = line.replace("&&", "AND")
             if re.findall(match_pattern_char1, line, flags=re.IGNORECASE):
                 if ("if".upper() in line.upper()) and ("set".upper() in line.upper()):
                     line = re.sub(match_pattern_char1_2, r'\1 := COMMON.C_CHAR(\3);', line, flags=re.IGNORECASE)
                 line = re.sub(match_pattern_char1, r' IS NULL', line, flags=re.IGNORECASE)
 
         if ("}While".upper() in line.upper()) or ("} While".upper() in line.upper()):
+            if "||" in line:
+                line = line.replace("||", "OR")
+            if "&&" in line:
+                line = line.replace("&&", "AND")
             processed_code.append(line)
             continue
         if ("Do {".upper() or "Do{".upper() or "do {".upper() or "do{".upper()) in line.upper():
             processed_code.append(line)
             continue
         if ("IF" in line.upper() and "THEN" in line.upper()) or ("END IF;" in line.upper()):
+            if "||" in line:
+                line = line.replace("||", "OR")
+            if "&&" in line:
+                line = line.replace("&&", "AND")
             processed_code.append(line)
             continue
         if "\r" == line:
@@ -1345,6 +1362,10 @@ def process_code(source_code):
             continue
 
         if ("If ".upper() in line.upper()) and ("ElseIf".upper() not in line.upper()):
+            if "||" in line:
+                line = line.replace("||", "OR")
+            if "&&" in line:
+                line = line.replace("&&", "AND")
             if "{" in line:
                 if "IF " in line:
                     condition = (line).split("IF ")[1].split("{")[0]
@@ -1366,6 +1387,10 @@ def process_code(source_code):
             else:
                 processed_code[-1] += " ELSE"
         elif "ElseIf".upper() in line.upper():
+            if "||" in line:
+                line = line.replace("||", "OR")
+            if "&&" in line:
+                line = line.replace("||", "AND")
             if "{" in line:
                 line = line.replace("}", "")
                 if "ElseIf " in line:
@@ -1378,6 +1403,8 @@ def process_code(source_code):
                     condition = (line).split("ElseIF ")[1].split("{")[0]
                 elif "ELSEIF" in line:
                     condition = (line).split("ELSEIF ")[1].split("{")[0]
+                elif "Elseif" in line:
+                    condition = (line).split("Elseif ")[1].split("{")[0]
                 else:
                     condition = (line).split("elseif ")[1].split("{")[0]
                 processed_code.append(" " * (len(stack) - 1) * 4 + f"ELSIF {condition} ")

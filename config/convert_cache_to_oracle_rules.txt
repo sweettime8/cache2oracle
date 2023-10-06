@@ -13,7 +13,7 @@ If\s*\(([^)]+)\)\s*\{\s*([\s\S]*?)\}\s*ElseIf\s*\(([^)]+)\)\s*\{\s*([\s\S]*?)\}\
 If\s*\(([^)]+)\)\s*\{\s*([\s\S]*?)\}\s*ElseIf\s*\(([^)]+)\)\s*\{\s*([\s\S]*?)\}|||IF (\1) THEN \n \2 \nELSIF (\3) THEN \n \4 \nEND IF;\n
 If\s*\(?([^)]+)\)\)?\s*([^{]+)\{\s*([\s\S]*?)\}\s*(Else|else)\s*\{\s*([\s\S]*?)\}|||\tIF \1 = \2 THEN \n\t  \3 \n\tELSE \n\t   \5 \n   END IF;\n
 If\s*\(?([^)]+)\)?\s*\{\s*([\s\S]*?)\}\s*Else\s*\{\s*([\s\S]*?)\}|||IF \1 THEN \n \2 \nELSE \n \3 \nEND IF;\n
-If\s*\(([^)]+)\)\s*\{([\s\S]*?)\}|||IF \1 THEN \n   \2 \n    END IF;\n
+If\s*([^{]+)\s*\{([\s\S]*?)\}|||IF \1 THEN \n   \2 \n    END IF;\n
 if\s*\(([^)]+)\)\s*\{([\s\S]*?)\}|||IF \1 THEN \n   \2 \n    END IF;\n
 If\s*([^{}]+)\s*\{([\s\S]*?)\}|||IF \1 THEN \n   \2 \n    END IF;\n
 (If|if|IF)\s*([^\n]+)(Quit|quit)\s*([^\n]+)|||IF \2 THEN \n\t    RETURN \4; \n\tEND IF;\n
@@ -102,4 +102,10 @@ Quit\s+\-(\w+)|||RETURN -1;\n
 \$ZSTRIP|||COMMON.C_ZSTRIP
 \$DOUBLE\(([^)]*)\)|||TO_BINARY_DOUBLE(\1)
 TROLLBACK|||ROLLBACK [TODO];
-Write "([^"]*)", (\w+), !|||DBMS_OUTPUT.PUT_LINE('\1' || NVL(\2) || CHR(10));
+write\s*([^|]*)\|\|\s*([^,]*),!|||DBMS_OUTPUT.PUT_LINE(\1||NVL(\2)||CHR(10))
+write\s*([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),!|||DBMS_OUTPUT.PUT_LINE(\1||NVL(\2)||\3||NVL(\4)||CHR(10))
+write\s*([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),!|||DBMS_OUTPUT.PUT_LINE(\1||NVL(\2)||\3||NVL(\4)||\5||NVL(\6)||CHR(10))
+write\s*([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),!|||DBMS_OUTPUT.PUT_LINE(\1||NVL(\2)||\3||NVL(\4)||\5||NVL(\6)||\7||NVL(\8)||CHR(10))
+write\s*([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),!|||DBMS_OUTPUT.PUT_LINE(\1||NVL(\2)||\3||NVL(\4)||\5||NVL(\6)||\7||NVL(\8)||\9||NVL(\10)||CHR(10))
+write\s*([^!]*)!|||DBMS_OUTPUT.PUT_LINE(\1||CHR(10));
+Write\s*"([^"]*)",\s*(\w+),\s*!|||DBMS_OUTPUT.PUT_LINE('\1'||NVL(\2)||CHR(10));
