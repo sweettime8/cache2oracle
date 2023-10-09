@@ -1263,7 +1263,7 @@ def process_code(source_code):
     source_code = checkLineWhile(source_code)
 
     # check với biểu thức IF nằm trong 1 dòng và không có {}, có set:
-    pattern_if_0 = r'If\s+([^\n{]+)\s*(Set)\s*([^\n]*)'
+    pattern_if_0 = r'If\s+([^\n{]+)(Set)\s*([^\n]*)'
     matches_if_0 = re.findall(pattern_if_0, source_code.strip(), flags=re.IGNORECASE)
     if matches_if_0:
         source_code = re.sub(pattern_if_0, r'IF \1 THEN \n\t    \2 \3 \n\tEND IF;\n', source_code,
