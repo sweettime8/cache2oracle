@@ -1013,6 +1013,28 @@ def convert_editor():
                 for match_comment_mutil_line in matchs_comment_mutil_line:
                     to_code_temp = to_code_temp.replace(match_comment_mutil_line[0], "")  # mrd
 
+            # check Do[3] : Do MethodName^Com.RoutineName(param, ...) -> ROUTINE_NAME_MAC.MethodName(param1, param2,...)
+            #pattern_do_3 = r'Do (\w+)\^(\w+)\.(\w+)\((.*?)\)'
+            pattern_do_3 = r'Do\s*(\w+)\^(\w+)\.(\w+)\(([^\n]*)\)'
+            # Tìm các kết hợp phù hợp trong chuỗi và thực hiện chuyển đổi
+            matches_do_3 = re.findall(pattern_do_3, to_code_temp.strip())
+            if matches_do_3:
+                for match_do_3 in matches_do_3:
+                    m_do3_function = match_do_3[0]
+                    m_do3_package = match_do_3[1].upper()
+                    m_do3_routine = match_do_3[2]
+                    m_do3_param = match_do_3[3]
+                    input_str_do3 = "Do " + match_do_3[0] + "^" + match_do_3[1] + "." + match_do_3[2] + "(" + \
+                                    match_do_3[
+                                        3] + ")"
+                    m_do3_routine = ''.join(['_' + c if c.isupper() else c for c in m_do3_routine]).lstrip('_')
+                    m_do3_routine = m_do3_routine.upper()
+                    # kiểm tra xem param có . không, nếu có remove đi
+                    m_do3_param = re.sub(r'\.', '', m_do3_param)
+                    output_str_do_3 = m_do3_package + "_" + m_do3_routine + "_MAC." + m_do3_function + "(" + m_do3_param + ");"
+
+                    to_code_temp = to_code_temp.replace(input_str_do3, output_str_do_3)
+
             # Convert comment #; /// ;
             to_code_temp = convert_comment_pattern(to_code_temp)
 
@@ -1033,27 +1055,6 @@ def convert_editor():
             # input -> $$MethodName(param1, param2,.param3,.param4) -> $$MethodName(param1, param2, param3, param4)
             pattern_dola_dola_2 = r'\$\$([^\s(\^@]+)\(([^)]+)'
             to_code_temp = convert_from_pattern_dola_dola_2(pattern_dola_dola_2, to_code_temp)
-
-            # check Do[3] : Do MethodName^RoutineName(param, ...) -> ROUTINE_NAME_MAC.MethodName(param1, param2,...)
-            pattern_do_3 = r'Do (\w+)\^(\w+)\.(\w+)\((.*?)\)'
-            # Tìm các kết hợp phù hợp trong chuỗi và thực hiện chuyển đổi
-            matches_do_3 = re.findall(pattern_do_3, from_code.strip())
-            if matches_do_3:
-                for match_do_3 in matches_do_3:
-                    m_do3_function = match_do_3[0]
-                    m_do3_package = match_do_3[1].upper()
-                    m_do3_routine = match_do_3[2]
-                    m_do3_param = match_do_3[3]
-                    input_str_do3 = "Do " + match_do_3[0] + "^" + match_do_3[1] + "." + match_do_3[2] + "(" + \
-                                    match_do_3[
-                                        3] + ")"
-                    m_do3_routine = ''.join(['_' + c if c.isupper() else c for c in m_do3_routine]).lstrip('_')
-                    m_do3_routine = m_do3_routine.upper()
-                    # kiểm tra xem param có . không, nếu có remove đi
-                    m_do3_param = re.sub(r'\.', '', m_do3_param)
-                    output_str_do_3 = m_do3_package + "_" + m_do3_routine + "_MAC." + m_do3_function + "(" + m_do3_param + ")"
-
-                    to_code_temp = to_code_temp.replace(input_str_do3, output_str_do_3)
 
             pattern_do_4 = r'(Do\s*##class)\(([^)]*)\).([^(]*)([^\n]*)'
             matches_do_4 = re.findall(pattern_do_4, from_code.strip())
@@ -1313,8 +1314,9 @@ def process_code(source_code):
             if "@$$$" not in line:
                 line = re.sub(pattern_dola_dola_dola_1, r"COMMON.GET_CONSTANT('\1',INCLUDE_LIST)", line.strip(),
                               flags=re.IGNORECASE)
-            processed_code.append(line)
-            continue
+            if ("If".upper() or ("While").upper() or ("ElseIf").upper() or ("QUIT:").upper()) not in line.upper():
+                processed_code.append(line)
+                continue
         # if (re.findall(pattern3, line.strip())) and (("if".upper or "else".upper() or "elseif") not in line.upper()):
         if re.findall(pattern3, line.strip(), flags=re.IGNORECASE):
             line = re.sub(pattern3, r'--\2', line.strip(), flags=re.IGNORECASE)
@@ -1407,9 +1409,9 @@ def process_code(source_code):
                     condition = (line).split("Elseif ")[1].split("{")[0]
                 else:
                     condition = (line).split("elseif ")[1].split("{")[0]
-                processed_code.append(" " * (len(stack) - 1) * 4 + f"ELSIF {condition} ")
+                processed_code.append(" " * (len(stack) - 1) * 4 + f"ELSIF {condition} THEN")
             else:
-                processed_code.append(" " * len(stack) * 4 + f"ELSIF {condition} ")
+                processed_code.append(" " * len(stack) * 4 + f"ELSIF {condition} THEN")
 
         elif "}" in line:
             if stack:

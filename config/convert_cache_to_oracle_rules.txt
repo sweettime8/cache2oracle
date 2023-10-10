@@ -5,7 +5,7 @@ Set\s*([^=\n\s*]*)\s*=\s*\$(C|CHAR)\(([^)]+)\)|||\1 := COMMON.C_CHAR(\3);
 Set\s*(([^=]*))\s*=\s*\$CASE\(([^,]*)\s*,\s*([^:\s*]*)\s*:([^:]*)\s*,\s*([^:\s*]*)\s*:([^,]*)\s*,\s*:([^)]*)\)|||\1:= CASE WHEN \4 THEN \5 \n\t\t WHEN \6 THEN \7 \n\t\t ELSE \8 \n\t\t END;
 Set\s*(([^=]*))\s*=\s*\$Case\(([^,]*)\s*,\s*([^:\s*]*)\s*:([^:]*)\s*,\s*:([^)]*)\)|||\1:= CASE WHEN \4 THEN \5 \n\t\t ELSE \6 \n\t\t END;
 (Do)\s*\{([\s\S]*?)\}\s*While\s*([^\n]*)|||LOOP\n\t  \2 \n\t EXIT WHEN NOT \3 \n END LOOP
-(Do|do|DO)\s+((\w+)\^(\w+)\(([^)]*\)))|||\4_MAC.\3(\5
+(Do|do|DO)\s+((\w+)\^(\w+)\(([^)]*\)))|||\4_MAC.\3(\5;
 Do\s+([^\s({]+)(?=\s|$)|||\1()
 (Do\s+(\w+))(\s+|\([^)]*\))|||\2\3
 If\s*\(([^)]+)\)\s*\{\s*([\s\S]*?)\}\s*ElseIf\s*\(([^)]+)\)\s*\{\s*([\s\S]*?)\}\s*Else\s*\{\s*([\s\S]*?)\}|||IF \1 THEN \n \2 \nELSIF \3 THEN \n \4 \nELSE \n \5 \nEND IF;\n
@@ -47,7 +47,6 @@ Quit\s+\-(\w+)|||RETURN -1;\n
 '=\s+|||!=
 ([^:])\s+=\s*""|||\1 IS NULL
 ([^:])=\s*""|||\1 IS NULL
-\s*([^:])=\s*\"([^"]+)\"||| = '\2'
 \"\"|||''
 \"([^"]*)\"|||'\1'
 \:\=\s*\"([^"]+)\"|||:= '\1'
@@ -109,3 +108,6 @@ write\s*([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),([^|]*
 write\s*([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),!|||DBMS_OUTPUT.PUT_LINE(\1||NVL(\2)||\3||NVL(\4)||\5||NVL(\6)||\7||NVL(\8)||\9||NVL(\10)||CHR(10))
 write\s*([^!]*)!|||DBMS_OUTPUT.PUT_LINE(\1||CHR(10));
 Write\s*"([^"]*)",\s*(\w+),\s*!|||DBMS_OUTPUT.PUT_LINE('\1'||NVL(\2)||CHR(10));
+Lock\s*\+@\$\$\$([^@]*)@([^\:]*)\s*:\s*([^\n]*)|||TEST := TABLE_NAME_REPO.C_LOCK(STRING_ARRAY\2,\3);
+Lock\s*\+\(@\$\$\$([^@]*)@([^\:]*)\)\s*:\s*([^\n]*)|||TEST := TABLE_NAME_REPO.C_LOCK(STRING_ARRAY\2,\3);
+Lock\s*\+\@\'\^([^@]*)\'@([^\:]*)\s*:\s*([^\n]*)|||TEST := TABLE_NAME_REPO.C_LOCK(STRING_ARRAY\2,\3);
