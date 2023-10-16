@@ -1083,13 +1083,13 @@ def convert_editor():
                     m_function = match[0]
                     m_package = match[1]
                     m_routine = match[2]
-                    m_param = match[3]
+                    m_param = re.sub(r'\.', '', match[3])
                     # Thêm dấu "_" trước chữ in hoa
-                    output_str = ''.join(['_' + c if c.isupper() else c for c in match[2]]).lstrip('_')
+                    output_str = ''.join(['_' + c if c.isupper() else c for c in m_routine]).lstrip('_')
                     # _MAC vào cuối và viết Hoa
-                    output_str = (match[1].upper() + "_" + output_str + "_MAC").upper()
+                    output_str = (m_package.upper() + "_" + output_str + "_MAC").upper()
                     # trả lại chuỗi in ra :
-                    output_str = output_str + "." + match[0].upper() + "(" + match[3] + ")"
+                    output_str = output_str + "." + m_function + "(" + m_param + ")"
 
                     # Replace đoạn pattern bằng chuỗi output_str
                     to_code_temp = to_code_temp.replace(input_str, output_str)
@@ -1144,11 +1144,12 @@ def convert_from_pattern(pattern, from_code):
         m_package = match[1].upper()
         m_routine = match[2]
         m_param = match[3]
-        input_str = match[0] + "^" + match[1] + "." + match[2] + "(" + match[3] + ")"
+        input_str = "$$" + match[0] + "^" + match[1] + "." + match[2] + "(" + match[3] + ")"
         m_routine = ''.join(['_' + c if c.isupper() else c for c in m_routine]).lstrip('_')
         m_routine = m_routine.upper()
         # kiểm tra xem param có . không, nếu có remove đi
-        m_param = re.sub(r'\.', '', m_param)
+        if "COMMON" not in m_param:
+            m_param = re.sub(r'\.', '', m_param)
         output_str = m_package + "_" + m_routine + "_MAC." + m_function + "(" + m_param + ")"
 
         to_code_temp = to_code_temp.replace(input_str, output_str)
@@ -1186,7 +1187,8 @@ def convert_from_pattern_dola_dola_2(pattern, from_code):
         m_param = match[1]
         input_str = "$$" + match[0] + "(" + match[1] + ")"
         # kiểm tra xem param có . không, nếu có remove đi
-        m_param = re.sub(r'\.', '', m_param)
+        if "COMMON" not in m_param:
+            m_param = re.sub(r'\.', '', m_param)
         output_str = m_function + "(" + m_param + ")"
         to_code_temp = to_code_temp.replace(input_str, output_str)
     return to_code_temp
@@ -1264,7 +1266,7 @@ def process_code(source_code):
     source_code = checkLineWhile(source_code)
 
     # check với biểu thức IF nằm trong 1 dòng và không có {}, có set:
-    pattern_if_0 = r'If\s+([^\n{]+)(Set)\s*([^\n]*)'
+    pattern_if_0 = r'If\s+([^\n{]+)(Set\s+)([^\n]*)'
     matches_if_0 = re.findall(pattern_if_0, source_code.strip(), flags=re.IGNORECASE)
     if matches_if_0:
         source_code = re.sub(pattern_if_0, r'IF \1 THEN \n\t    \2 \3 \n\tEND IF;\n', source_code,
@@ -1280,6 +1282,8 @@ def process_code(source_code):
     # check với biểu thức IF nằm trong 1 dòng và có {}:
     pattern_if_2 = r'If\s*([^{]+)\{([^}]+)\}\n'
     matches_if_2 = re.findall(pattern_if_2, source_code.strip())
+    if matches_if_2:
+        source_code = re.sub(pattern_if_2, r'IF \1 THEN \n\t    \2 \n\tEND IF;\n', source_code, flags=re.IGNORECASE)
 
     # '= $C(0) -> IS NOT NULL
     matche_pattern_char0 = r'(\'=\s*)(\$C|\$Char)(\(0\))'
@@ -1288,9 +1292,6 @@ def process_code(source_code):
     # TH2: Dùng để gán giá trị -> := COMMON.C_CHAR(0)
     match_pattern_char1 = r'\s*=\s*(\$C|\$Char)\(0\)'
     match_pattern_char1_2 = r'Set\s*([^=]*)\s*=\s*\$(C|Char)\(([^)]*)\)'
-
-    if matches_if_2:
-        source_code = re.sub(pattern_if_2, r'IF \1 THEN \n\t    \2 \n\tEND IF;\n', source_code, flags=re.IGNORECASE)
 
     # Set piUserKey = asdasdasd , piUserKey = asdasdasd
     pattern_multi_set_2 = r'Set\s*([^=\s*]*)\s*=\s*([^,]*),\s*([^=\s*]*)\s*=\s*([^,\n]*)\s*'
