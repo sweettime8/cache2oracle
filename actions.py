@@ -54,6 +54,95 @@ oracle_keywords = [
 ]
 
 
+def check_condition(condition):
+    groups = re.split(r'\s*(OR|AND)\s*', condition.strip())
+    new_condition = []
+    for index, cond in enumerate(groups):
+        flag_first = 0
+        flag_last = 0
+        if cond[0] == '(':
+            if cond[1] == '(':
+                cond = cond[1:]
+                flag_first = 1  # check ngoặc
+        if cond[-1] == ')':
+            if cond[-2] == ')':
+                if "$char(0)".upper() in cond.upper() or ("$C(0)".upper() in cond.upper()):
+                    cond = cond[1:-1]
+                else:
+                    cond = cond[1:-2]
+                    flag_last = 1
+        if "\'=" in cond:
+            left_cond = (cond.strip()).split("\'=")[0]
+            right_cond = (cond.strip()).split("\'=")[1]
+            if left_cond[0] == "(" and right_cond[-1] == ")":
+                left_cond = left_cond[1:]
+                right_cond = right_cond[:-1]
+            if right_cond.strip() != "\"\"" and right_cond.strip().upper() != "$C(0)" and right_cond.strip().upper() != "$CHAR(0)":
+                if flag_first == 0 and flag_last == 0:
+                    new_value = "COMMON.IS_NOT_EQUAL(" + left_cond + ", " + right_cond + ")"
+                elif flag_first == 1 and flag_last == 0:
+                    new_value = "(COMMON.IS_NOT_EQUAL(" + left_cond + ", " + right_cond + ")"
+                elif flag_first == 0 and flag_last == 1:
+                    new_value = "COMMON.IS_NOT_EQUAL(" + left_cond + ", " + right_cond + "))"
+                new_condition.append(new_value)
+            elif right_cond.strip().upper() == "$C(0)" or right_cond.strip().upper() == "$CHAR(0)":
+                if flag_first == 0 and flag_last == 0:
+                    new_value = "COMMON.IS_NOT_EQUAL(" + left_cond + ", COMMON.C_CHAR(0)" + ")"
+                elif flag_first == 1 and flag_last == 0:
+                    new_value = "(COMMON.IS_NOT_EQUAL(" + left_cond + ", COMMON.C_CHAR(0)" + ")"
+                elif flag_first == 0 and flag_last == 1:
+                    new_value = "COMMON.IS_NOT_EQUAL(" + left_cond + ", COMMON.C_CHAR(0)" + "))"
+                new_condition.append(new_value)
+            else:
+                if flag_first == 0 and flag_last == 0:
+                    new_value = "COMMON.IS_NOT_EQUAL(" + left_cond + ", NULL" + ")"
+                elif flag_first == 1 and flag_last == 0:
+                    new_value = "(COMMON.IS_NOT_EQUAL(" + left_cond + ", NULL" + ")"
+                elif flag_first == 0 and flag_last == 1:
+                    new_value = "COMMON.IS_NOT_EQUAL(" + left_cond + ", NULL" + "))"
+                new_condition.append(new_value)
+        elif "=" in cond:
+            left_cond = (cond.strip()).split("=")[0]
+            right_cond = (cond.strip()).split("=")[1]
+            if left_cond[0] == "(" and right_cond[-1] == ")":
+                left_cond = left_cond[1:]
+                right_cond = right_cond[:-1]
+            elif left_cond[0] == "(" and right_cond[-1] != ")":
+                left_cond = left_cond[1:]
+            elif (left_cond[0] != "(" and right_cond[-1] == ")" and
+                  (("$C(0)".upper() or "$Char(0)".upper()) not in right_cond.upper())):
+                right_cond = right_cond[:-2]
+
+            if right_cond.strip() != "\"\"" and right_cond.strip().upper() != "$C(0)" and right_cond.strip().upper() != "$CHAR(0)":
+                if flag_first == 0 and flag_last == 0:
+                    new_value = "COMMON.IS_EQUAL(" + left_cond + ", " + right_cond + ")"
+                elif flag_first == 1 and flag_last == 0:
+                    new_value = "(COMMON.IS_EQUAL(" + left_cond + ", " + right_cond + ")"
+                elif flag_first == 0 and flag_last == 1:
+                    new_value = "COMMON.IS_EQUAL(" + left_cond + ", " + right_cond + "))"
+                new_condition.append(new_value)
+            elif right_cond.strip().upper() == "$C(0)" or right_cond.strip().upper() == "$CHAR(0)":
+                if flag_first == 0 and flag_last == 0:
+                    new_value = "COMMON.IS_EQUAL(" + left_cond + ", COMMON.C_CHAR(0)" + ")"
+                elif flag_first == 1 and flag_last == 0:
+                    new_value = "(COMMON.IS_EQUAL(" + left_cond + ", COMMON.C_CHAR(0)" + ")"
+                elif flag_first == 0 and flag_last == 1:
+                    new_value = "COMMON.IS_EQUAL(" + left_cond + ", COMMON.C_CHAR(0)" + "))"
+                new_condition.append(new_value)
+            else:
+                if flag_first == 0 and flag_last == 0:
+                    new_value = "COMMON.IS_EQUAL(" + left_cond + ", NULL" + ")"
+                elif flag_first == 1 and flag_last == 0:
+                    new_value = "(COMMON.IS_EQUAL(" + left_cond + ", NULL" + ")"
+                elif flag_first == 0 and flag_last == 1:
+                    new_value = "COMMON.IS_EQUAL(" + left_cond + ", NULL" + "))"
+                new_condition.append(new_value)
+        else:
+            new_condition.append(cond)
+    condition = ' '.join(new_condition)
+    return condition
+
+
 @actions.route('/start-convert-cls', methods=['POST', 'GET'])
 def start_convert_cls():
     try:
@@ -1014,7 +1103,7 @@ def convert_editor():
                     to_code_temp = to_code_temp.replace(match_comment_mutil_line[0], "")  # mrd
 
             # check Do[3] : Do MethodName^Com.RoutineName(param, ...) -> ROUTINE_NAME_MAC.MethodName(param1, param2,...)
-            #pattern_do_3 = r'Do (\w+)\^(\w+)\.(\w+)\((.*?)\)'
+            # pattern_do_3 = r'Do (\w+)\^(\w+)\.(\w+)\((.*?)\)'
             pattern_do_3 = r'Do\s*(\w+)\^(\w+)\.(\w+)\(([^\n]*)\)'
             # Tìm các kết hợp phù hợp trong chuỗi và thực hiện chuyển đổi
             matches_do_3 = re.findall(pattern_do_3, to_code_temp.strip())
@@ -1288,6 +1377,12 @@ def process_code(source_code):
     # '= $C(0) -> IS NOT NULL
     matche_pattern_char0 = r'(\'=\s*)(\$C|\$Char)(\(0\))'
 
+    # var1 = var2 -> var1 = var2 -> update COMMON.IS_EQUAL(v1,v2)
+    match_pattern_compare = r'\'=\s*\"\"'
+
+    # var1 '= var2 -> var1 != var2 -> update COMMON.IS_NOT_EQUAL(v1,v2)
+    match_pattern_not_compare = r'ssss'
+
     # TH1: Dùng trong các condition -> IS NULL
     # TH2: Dùng để gán giá trị -> := COMMON.C_CHAR(0)
     match_pattern_char1 = r'\s*=\s*(\$C|\$Char)\(0\)'
@@ -1301,8 +1396,31 @@ def process_code(source_code):
     # check $$$ConstantName và ko được match @$$$ConstantName@(param1, param2,...)
     pattern_dola_dola_dola_1 = r'\$\$\$([A-Za-z0-9]+)'
 
+    pattern_quit_condition = r'quit:\(([^\n]+)\)'
+    pattern_quit_condition2 = r'quit:([^\n]+)'
+
     code_lines = source_code.split('\n')
     for line in code_lines:
+        if re.findall(pattern_quit_condition, line.strip(), flags=re.IGNORECASE):
+            match_quit_cond = re.findall(pattern_quit_condition, line.strip(), flags=re.IGNORECASE)
+            if match_quit_cond:
+                out_str = ""
+                for match_cond in match_quit_cond:
+                    m_cond = check_condition(match_cond)
+                    out_str += m_cond
+                line = "QUIT:(" + out_str + ")"
+            processed_code.append(line)
+            continue
+        if re.findall(pattern_quit_condition2, line.strip(), flags=re.IGNORECASE):
+            match_quit_cond2 = re.findall(pattern_quit_condition2, line.strip(), flags=re.IGNORECASE)
+            if match_quit_cond2:
+                out_str2 = ""
+                for match_cond2 in match_quit_cond2:
+                    m_cond2 = check_condition(match_cond2)
+                    out_str2 += m_cond2
+                line = "QUIT:" + out_str2
+            processed_code.append(line)
+            continue
         if re.findall(pattern_multi_set_3, line.strip(), flags=re.IGNORECASE):
             line = re.sub(pattern_multi_set_3, r'\1 := \2; \3 := \4; \5 := \6;', line.strip(), flags=re.IGNORECASE)
             processed_code.append(line)
@@ -1323,8 +1441,8 @@ def process_code(source_code):
             line = re.sub(pattern3, r'--\2', line.strip(), flags=re.IGNORECASE)
             processed_code.append(line)
             continue
-        if re.findall(matche_pattern_char0, line, flags=re.IGNORECASE):
-            line = re.sub(r"'=\s*\$(C|CHAR)\(0\)", 'IS NOT NULL', line, flags=re.IGNORECASE)
+        # if re.findall(matche_pattern_char0, line, flags=re.IGNORECASE):
+        #     line = re.sub(r"'=\s*\$(C|CHAR)\(0\)", 'IS NOT NULL', line, flags=re.IGNORECASE)
 
         if ("If".upper() or ("While").upper() or ("ElseIf").upper() or ("QUIT:").upper()) in line.upper():
             if "||" in line:
@@ -1334,7 +1452,7 @@ def process_code(source_code):
             if re.findall(match_pattern_char1, line, flags=re.IGNORECASE):
                 if ("if".upper() in line.upper()) and ("set".upper() in line.upper()):
                     line = re.sub(match_pattern_char1_2, r'\1 := COMMON.C_CHAR(\3);', line, flags=re.IGNORECASE)
-                line = re.sub(match_pattern_char1, r' IS NULL', line, flags=re.IGNORECASE)
+                # line = re.sub(match_pattern_char1, r' IS NULL', line, flags=re.IGNORECASE)
 
         if ("}While".upper() in line.upper()) or ("} While".upper() in line.upper()):
             if "||" in line:
@@ -1377,6 +1495,8 @@ def process_code(source_code):
                 else:
                     condition = (line).split("if ")[1].split("{")[0]
 
+                condition = check_condition(condition)
+
                 stack.append(True)  # Bắt đầu một cấp độ mới
                 processed_code.append(" " * (len(stack) - 1) * 4 + f"IF {condition} THEN")
             else:
@@ -1410,6 +1530,7 @@ def process_code(source_code):
                     condition = (line).split("Elseif ")[1].split("{")[0]
                 else:
                     condition = (line).split("elseif ")[1].split("{")[0]
+                condition = check_condition(condition)
                 processed_code.append(" " * (len(stack) - 1) * 4 + f"ELSIF {condition} THEN")
             else:
                 processed_code.append(" " * len(stack) * 4 + f"ELSIF {condition} THEN")
@@ -1454,6 +1575,18 @@ def checkLineWhile(source_code):
             index_line = i
 
         elif "While".upper() in line.upper() and "{" in line:
+            if "=" in line:
+                if "While" in line:
+                    condition = (line.strip()).split("While")[1].split("{")[0]
+                elif "while" in line:
+                    condition = (line.strip()).split("while")[1].split("{")[0]
+                    print(condition)
+                else:
+                    condition = (line.strip()).split("WHILE")[1].split("{")[0]
+
+                condition = check_condition(condition)
+                line = "WHILE " + condition + " {"
+
             line_new = line  # Bắt đầu từ dòng có "While"
             for j in range(i + 1, len(lines)):
                 line_new += "\n" + lines[j]  # Thêm các dòng tiếp theo vào linenew
@@ -1586,6 +1719,16 @@ def checkDoWhile(source_code):
         # Nếu trong một vòng DO
         if inside_do:
             if ("}" in line) and ("while".upper() in line.upper()):
+                if "While" in line:
+                    condition = (line.strip()).split("While")[1]
+                elif "while" in line:
+                    condition = (line.strip()).split("while")[1]
+                    print(condition)
+                else:
+                    condition = (line.strip()).split("WHILE")[1]
+
+                condition = check_condition(condition)
+                line = "}WHILE " + condition
                 count += 1
             # Tính toán số ngoặc mở và đóng
             count_braces += line.count("{")

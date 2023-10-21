@@ -2,8 +2,8 @@ Set\s*([^=\n\s*]*)\s*=\s*\$(C|CHAR)\(([^)]+)\)|||\1 := COMMON.C_CHAR(\3);
 (Set|SET|set)\s*\$BIT\(([^)]+)\)\s*\=\s*([^\n]*)|||COMMON.C_BIT(\2, \3);
 (Set|SET|set)\s*\$Extract\(([^)]+)\)\s*\=\s*([^\n]*)|||COMMON.C_EXTRACT(\2, \3);
 (Set|SET|set)\s*\$PIECE\(([^)]+)\)\s*=\s*(.+)|||COMMON.C_PIECE(\2, \3);
-Set\s*(([^=]*))\s*=\s*\$CASE\(([^,]*)\s*,\s*([^:\s*]*)\s*:([^:]*)\s*,\s*([^:\s*]*)\s*:([^,]*)\s*,\s*:([^)]*)\)|||\1:= CASE WHEN \4 THEN \5 \n\t\t WHEN \6 THEN \7 \n\t\t ELSE \8 \n\t\t END;
-Set\s*(([^=]*))\s*=\s*\$Case\(([^,]*)\s*,\s*([^:\s*]*)\s*:([^:]*)\s*,\s*:([^)]*)\)|||\1:= CASE WHEN \4 THEN \5 \n\t\t ELSE \6 \n\t\t END;
+Set\s*(([^=]*))\s*=\s*\$CASE\(([^,]*)\s*,\s*([^:\s*]*)\s*:([^:]*)\s*,\s*([^:\s*]*)\s*:([^,]*)\s*,\s*:([^)]*)\)|||\1:= CASE \3 WHEN \4 THEN \5 \n\t\t WHEN \6 THEN \7 \n\t\t ELSE \8 \n\t\t END;
+Set\s*(([^=]*))\s*=\s*\$Case\(([^,]*)\s*,\s*([^:\s*]*)\s*:([^:]*)\s*,\s*:([^)]*)\)|||\1:= CASE \3 WHEN \4 THEN \5 \n\t\t ELSE \6 \n\t\t END;
 (Do)\s*\{([\s\S]*?)\}\s*While\s*([^\n]*)|||LOOP\n\t  \2 \n\t EXIT WHEN NOT \3 \n END LOOP
 (Do|do|DO)\s+((\w+)\^(\w+)\(([^)]*\)))|||\4_MAC.\3(\5;
 Do\s+([^\s({]+)(?=\s|$)|||\1()
@@ -113,3 +113,4 @@ Write\s*"([^"]*)",\s*(\w+),\s*!|||DBMS_OUTPUT.PUT_LINE('\1'||NVL(\2)||CHR(10));
 Lock\s*\+@\$\$\$([^@]*)@([^\:]*)\s*:\s*([^\n]*)|||TEST := TABLE_NAME_REPO.C_LOCK(STRING_ARRAY\2,\3);
 Lock\s*\+\(@\$\$\$([^@]*)@([^\:]*)\)\s*:\s*([^\n]*)|||TEST := TABLE_NAME_REPO.C_LOCK(STRING_ARRAY\2,\3);
 Lock\s*\+\@\'\^([^@]*)\'@([^\:]*)\s*:\s*([^\n]*)|||TEST := TABLE_NAME_REPO.C_LOCK(STRING_ARRAY\2,\3);
+\$TEST|||TEST
