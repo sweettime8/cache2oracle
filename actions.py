@@ -75,8 +75,11 @@ def check_condition(condition):
             left_cond = (cond.strip()).split("\'=")[0]
             right_cond = (cond.strip()).split("\'=")[1]
             if left_cond[0] == "(" and right_cond[-1] == ")":
-                left_cond = left_cond[1:]
-                right_cond = right_cond[:-1]
+                if left_cond[1] != "(" and right_cond[-2] != ")" and (("$C(0)".upper() in right_cond.upper()) or ("$Char(0)".upper() in right_cond.upper())):
+                    left_cond = left_cond[1:]
+                else:
+                    left_cond = left_cond[1:]
+                    right_cond = right_cond[:-1]
             if right_cond.strip() != "\"\"" and right_cond.strip().upper() != "$C(0)" and right_cond.strip().upper() != "$CHAR(0)":
                 if flag_first == 0 and flag_last == 0:
                     new_value = "COMMON.IS_NOT_EQUAL(" + left_cond + ", " + right_cond + ")"
@@ -91,7 +94,7 @@ def check_condition(condition):
                 elif flag_first == 1 and flag_last == 0:
                     new_value = "(COMMON.IS_NOT_EQUAL(" + left_cond + ", COMMON.C_CHAR(0)" + ")"
                 elif flag_first == 0 and flag_last == 1:
-                    new_value = "COMMON.IS_NOT_EQUAL(" + left_cond + ", COMMON.C_CHAR(0)" + "))"
+                    new_value = "COMMON.IS_NOT_EQUAL(" + left_cond + ", COMMON.C_CHAR(0)" + ")"
                 new_condition.append(new_value)
             else:
                 if flag_first == 0 and flag_last == 0:
@@ -99,18 +102,21 @@ def check_condition(condition):
                 elif flag_first == 1 and flag_last == 0:
                     new_value = "(COMMON.IS_NOT_EQUAL(" + left_cond + ", NULL" + ")"
                 elif flag_first == 0 and flag_last == 1:
-                    new_value = "COMMON.IS_NOT_EQUAL(" + left_cond + ", NULL" + "))"
+                    new_value = "COMMON.IS_NOT_EQUAL(" + left_cond + ", NULL" + ")"
                 new_condition.append(new_value)
         elif "=" in cond:
             left_cond = (cond.strip()).split("=")[0]
             right_cond = (cond.strip()).split("=")[1]
             if left_cond[0] == "(" and right_cond[-1] == ")":
-                left_cond = left_cond[1:]
-                right_cond = right_cond[:-1]
+                if left_cond[1] != "(" and right_cond[-2] != ")" and (("$C(0)".upper() in right_cond.upper()) or ("$Char(0)".upper() in right_cond.upper())):
+                    left_cond = left_cond[1:]
+                else:
+                    left_cond = left_cond[1:]
+                    right_cond = right_cond[:-1]
             elif left_cond[0] == "(" and right_cond[-1] != ")":
                 left_cond = left_cond[1:]
-            elif (left_cond[0] != "(" and right_cond[-1] == ")" and
-                  (("$C(0)".upper() or "$Char(0)".upper()) not in right_cond.upper())):
+            elif left_cond[0] != "(" and right_cond[-1] == ")" and ("$C(0)".upper() not in right_cond.upper()) and (
+                    "$Char(0)".upper() not in right_cond.upper()):
                 right_cond = right_cond[:-2]
 
             if right_cond.strip() != "\"\"" and right_cond.strip().upper() != "$C(0)" and right_cond.strip().upper() != "$CHAR(0)":
