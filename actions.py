@@ -80,13 +80,14 @@ def check_condition(condition):
                 else:
                     left_cond = left_cond[1:]
                     right_cond = right_cond[:-1]
+
             if right_cond.strip() != "\"\"" and right_cond.strip().upper() != "$C(0)" and right_cond.strip().upper() != "$CHAR(0)":
                 if flag_first == 0 and flag_last == 0:
-                    new_value = "COMMON.IS_NOT_EQUAL(" + left_cond + ", " + right_cond + ")"
+                    new_value = "COMMON.IS_NOT_EQUAL(" + left_cond + "," + right_cond + ")"
                 elif flag_first == 1 and flag_last == 0:
-                    new_value = "(COMMON.IS_NOT_EQUAL(" + left_cond + ", " + right_cond + ")"
+                    new_value = "(COMMON.IS_NOT_EQUAL(" + left_cond + "," + right_cond + ")"
                 elif flag_first == 0 and flag_last == 1:
-                    new_value = "COMMON.IS_NOT_EQUAL(" + left_cond + ", " + right_cond + "))"
+                    new_value = "COMMON.IS_NOT_EQUAL(" + left_cond + "," + right_cond + "))"
                 new_condition.append(new_value)
             elif right_cond.strip().upper() == "$C(0)" or right_cond.strip().upper() == "$CHAR(0)":
                 if flag_first == 0 and flag_last == 0:
@@ -102,7 +103,7 @@ def check_condition(condition):
                 elif flag_first == 1 and flag_last == 0:
                     new_value = "(COMMON.IS_NOT_EQUAL(" + left_cond + ", NULL" + ")"
                 elif flag_first == 0 and flag_last == 1:
-                    new_value = "COMMON.IS_NOT_EQUAL(" + left_cond + ", NULL" + ")"
+                    new_value = "COMMON.IS_NOT_EQUAL(" + left_cond + ", NULL" + "))"
                 new_condition.append(new_value)
         elif "=" in cond:
             left_cond = (cond.strip()).split("=")[0]
@@ -121,11 +122,11 @@ def check_condition(condition):
 
             if right_cond.strip() != "\"\"" and right_cond.strip().upper() != "$C(0)" and right_cond.strip().upper() != "$CHAR(0)":
                 if flag_first == 0 and flag_last == 0:
-                    new_value = "COMMON.IS_EQUAL(" + left_cond + ", " + right_cond + ")"
+                    new_value = "COMMON.IS_EQUAL(" + left_cond + "," + right_cond + ")"
                 elif flag_first == 1 and flag_last == 0:
-                    new_value = "(COMMON.IS_EQUAL(" + left_cond + ", " + right_cond + ")"
+                    new_value = "(COMMON.IS_EQUAL(" + left_cond + "," + right_cond + ")"
                 elif flag_first == 0 and flag_last == 1:
-                    new_value = "COMMON.IS_EQUAL(" + left_cond + ", " + right_cond + "))"
+                    new_value = "COMMON.IS_EQUAL(" + left_cond + "," + right_cond + "))"
                 new_condition.append(new_value)
             elif right_cond.strip().upper() == "$C(0)" or right_cond.strip().upper() == "$CHAR(0)":
                 if flag_first == 0 and flag_last == 0:
