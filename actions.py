@@ -78,7 +78,7 @@ def check_condition(condition):
                     flag_last += 1
                     cond = cond[:-1]
 
-        if "\'=" in cond:
+        if "\'=" in cond and (">=" not in cond) and ("<=" not in cond):
             left_cond = (cond.strip()).split("\'=")[0]
             right_cond = (cond.strip()).split("\'=")[1]
             if left_cond[0] == "(" and right_cond[-1] == ")":
@@ -136,7 +136,7 @@ def check_condition(condition):
                     new_value = "(COMMON.IS_NOT_EQUAL(" + left_cond + ", NULL" + "))))"
                 new_condition.append(new_value)
         #TH2
-        elif "=" in cond:
+        elif "=" in cond and (">=" not in cond) and ("<=" not in cond):
             left_cond = (cond.strip()).split("=")[0]
             right_cond = (cond.strip()).split("=")[1]
             if left_cond[0] == "(" and right_cond[-1] == ")":
@@ -150,7 +150,7 @@ def check_condition(condition):
                 left_cond = left_cond[1:]
             elif left_cond[0] != "(" and right_cond[-1] == ")" and ("$C(0)".upper() not in right_cond.upper()) and (
                     "$Char(0)".upper() not in right_cond.upper()):
-                right_cond = right_cond[:-2]
+                right_cond = right_cond[:-1]
 
             if right_cond.strip() != "\"\"" and right_cond.strip().upper() != "$C(0)" and right_cond.strip().upper() != "$CHAR(0)":
                 if flag_first == 0 and flag_last == 0:
@@ -201,6 +201,13 @@ def check_condition(condition):
                     new_value = "((COMMON.IS_EQUAL(" + left_cond + ", NULL" + "))"
                 new_condition.append(new_value)
         else:
+            if flag_first == 1 and flag_last == 1:
+                cond = "(" + cond + ")"
+            elif flag_first == 1 and flag_last == 2:
+                cond = "(" + cond + "))"
+            elif flag_first == 2 and flag_last == 1:
+                cond = "((" + cond + ")"
+
             new_condition.append(cond)
     condition = ' '.join(new_condition)
     return condition
@@ -1432,10 +1439,7 @@ def process_code(source_code):
                              flags=re.IGNORECASE)
 
     # check với biểu thức IF nằm trong 1 dòng và có {}:
-    pattern_if_2 = r'If\s*([^{]+)\{([^}]+)\}\n'
-    matches_if_2 = re.findall(pattern_if_2, source_code.strip())
-    if matches_if_2:
-        source_code = re.sub(pattern_if_2, r'IF \1 THEN \n\t    \2 \n\tEND IF;\n', source_code, flags=re.IGNORECASE)
+    pattern_if_2 = r'If\s*([^{]+)\{([^}]+)\}'
 
     # '= $C(0) -> IS NOT NULL
     matche_pattern_char0 = r'(\'=\s*)(\$C|\$Char)(\(0\))'
@@ -1464,6 +1468,25 @@ def process_code(source_code):
 
     code_lines = source_code.split('\n')
     for line in code_lines:
+        if re.findall(pattern_if_2, line.strip(), flags=re.IGNORECASE):
+            if ("If ".upper() in line.upper()) and ("ElseIf".upper() not in line.upper()):
+                if "||" in line:
+                    line = line.replace("||", "OR")
+                if "&&" in line:
+                    line = line.replace("&&", "AND")
+                if "{" in line:
+                    if "IF " in line:
+                        condition = (line).split("IF ")[1].split("{")[0]
+                    elif "If" in line:
+                        condition = (line).split("If ")[1].split("{")[0]
+                    else:
+                        condition = (line).split("if ")[1].split("{")[0]
+
+                    condition = check_condition(condition)
+            line = re.sub(pattern_if_2, 'IF ' + condition + r' \2', line.strip(), flags=re.IGNORECASE)
+            processed_code.append(line)
+            continue
+
         if re.findall(pattern_quit_condition, line.strip(), flags=re.IGNORECASE):
             match_quit_cond = re.findall(pattern_quit_condition, line.strip(), flags=re.IGNORECASE)
             if match_quit_cond:
