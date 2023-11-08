@@ -84,7 +84,7 @@ Quit\s+\-(\w+)|||RETURN -1;\n
 \$ZUTIL\(193,\$ztimestamp\)|||COMMON.C_ZUTIL(193)
 \$ZUTIL\(([^)]+)\)|||COMMON.C_ZUTIL(\1)
 \$ZTIMESTAMP|||COMMON.C_ZTIMESTAMP
-\$List\(([^),]+)\,\s*([^,)]*)\)|||\1(\2)
+\$List\(([^),]+)\,\s*([^,)]*)\)|||COMMON.C_LISTGET(\1, \2)
 \$LIST\(([^)]+)\)|||COMMON.C_LIST(\1)
 \$NUMBER\(([^)]+)\)|||COMMON.C_NUMBER(\1)
 \$EXTRACT\(([^)]+)\)|||COMMON.C_EXTRACT(\1)

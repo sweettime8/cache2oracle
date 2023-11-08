@@ -1431,6 +1431,12 @@ def process_code(source_code):
         source_code = re.sub(pattern_if_0, r'IF \1 THEN \n\t    \2 \3 \n\tEND IF;\n', source_code,
                              flags=re.IGNORECASE)
 
+    pattern_set_list = r'Set\s*\$List\(([^=]*)\)\s*=\s*([^\n]*)'
+    matches_set_list = re.findall(pattern_set_list, source_code.strip(), flags=re.IGNORECASE)
+    if matches_set_list:
+        source_code = re.sub(pattern_set_list, r'COMMON.C_LISTSET(\1, \2);', source_code,
+                             flags=re.IGNORECASE)
+
     # check với biểu thức IF nằm trong 1 dòng và không có {}, có quit:
     pattern_if_1 = r'If\s+([^\n{]+)(Quit)([^\n]+)'
     matches_if_1 = re.findall(pattern_if_1, source_code.strip(), flags=re.IGNORECASE)
