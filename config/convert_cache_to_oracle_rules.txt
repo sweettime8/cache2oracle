@@ -1,3 +1,8 @@
+Set qHandle\(([^)]*)\)\s*\=\s*\"\"|||COMMON.C_LISTSET(qHandle, \1, NULL)
+Set qHandle\(([^)]*)\)\s*\=\s*([^\n]*)|||COMMON.C_LISTSET(qHandle, \1, \2)
+(Set\s*\$Zerror\s*\=\s*([^\n]*))|||-- \1
+(Set\s*\$Ze\s*\=\s*([^\n]*))|||-- \1
+qHandle\(([^)]*)\)|||COMMON.C_LISTGET(qHandle, \1)
 Set\s*([^=\n\s*]*)\s*=\s*\$(C|CHAR)\(([^)]+)\)|||\1 := COMMON.C_CHAR(\3);
 (Set|SET|set)\s*\$BIT\(([^)]+)\)\s*\=\s*([^\n]*)|||COMMON.C_BIT(\2, \3);
 (Set|SET|set)\s*\$Extract\(([^)]+)\)\s*\=\s*([^\n]*)|||COMMON.C_EXTRACT(\2, \3);
@@ -20,8 +25,8 @@ If\s*([^{}]+)\s*\{([\s\S]*?)\}|||IF \1 THEN \n   \2 \n    END IF;\n
 (If|if|IF)\s*\(([^{]+)\{([^}]+)\}|||IF (\2 THEN \n\t    \3; \n\tEND IF;\n
 (If|if|IF)\s*([^=]+)\=\s*\"\"\s*(Quit)\s+(\w+)|||IF \2 IS NULL THEN \n\t   RETURN \4; \n\tEND IF;\n
 While \((.*?)\) {([\s\S]*?)}|||WHILE \1 \nLOOP\n  \2 \nEND LOOP;
-TSTART\s*([\s\S]*?)\s*TCOMMIT|||\1\nCOMMIT;
-TCOMMIT|||COMMIT;
+TSTART|||COMMON.C_TSTART;
+TCOMMIT|||COMMON.C_TCOMMIT;
 (For|for|FOR)\s*(\w+)\s*\=(\w+)\:(\w+)\:(\w+)\s*\{([\s\S]*?)\}|||FOR \2 IN \3..\5\n\t LOOP \n\t\t   \6\n\tEND LOOP;
 For\s*\{([\s\S]*?)\}|||LOOP\n  \1 \nEND LOOP;
 (Try)\s*\{([\s\S]*?)([^{}]+)\}\s*Catch([^{]+)\{([^}]+)\}|||BEGIN\n  \2 \nEXCEPTION\n  WHEN OTHERS THEN\n   \3 \nEND;
@@ -103,7 +108,7 @@ Quit\s+\-(\w+)|||RETURN -1;\n
 \$(ZNAME|ZN)|||PACKAGE_NAME
 \$ZSTRIP|||COMMON.C_ZSTRIP
 \$DOUBLE\(([^)]*)\)|||TO_BINARY_DOUBLE(\1)
-TROLLBACK|||ROLLBACK [TODO];
+TROLLBACK|||COMMON.C_TROLLBACK;
 write\s*([^|]*)\|\|\s*([^,]*),!|||DBMS_OUTPUT.PUT_LINE(\1||NVL(\2)||CHR(10))
 write\s*([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),!|||DBMS_OUTPUT.PUT_LINE(\1||NVL(\2)||\3||NVL(\4)||CHR(10))
 write\s*([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),!|||DBMS_OUTPUT.PUT_LINE(\1||NVL(\2)||\3||NVL(\4)||\5||NVL(\6)||CHR(10))
@@ -111,7 +116,6 @@ write\s*([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),([^|]*
 write\s*([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),([^|]*)\|\|\s*([^,]*),!|||DBMS_OUTPUT.PUT_LINE(\1||NVL(\2)||\3||NVL(\4)||\5||NVL(\6)||\7||NVL(\8)||\9||NVL(\10)||CHR(10))
 write\s*([^!]*)!|||DBMS_OUTPUT.PUT_LINE(\1||CHR(10));
 Write\s*"([^"]*)",\s*(\w+),\s*!|||DBMS_OUTPUT.PUT_LINE('\1'||NVL(\2)||CHR(10));
-Lock\s*\+@\$\$\$([^@]*)@([^\:]*)\s*:\s*([^\n]*)|||TEST := TABLE_NAME_REPO.C_LOCK(STRING_ARRAY\2,\3);
-Lock\s*\+\(@\$\$\$([^@]*)@([^\:]*)\)\s*:\s*([^\n]*)|||TEST := TABLE_NAME_REPO.C_LOCK(STRING_ARRAY\2,\3);
-Lock\s*\+\@\'\^([^@]*)\'@([^\:]*)\s*:\s*([^\n]*)|||TEST := TABLE_NAME_REPO.C_LOCK(STRING_ARRAY\2,\3);
 \$TEST|||TEST
+(NEW\s*\$ESTACK)|||-- \1
+CONTINUE|||CONTINUE;

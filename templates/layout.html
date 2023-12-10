@@ -34,10 +34,10 @@
     <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.63.0/mode/sql/sql.min.js"></script> -->
     <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/codemirror.min.js"></script>-->
     <!-- Thêm ngôn ngữ hỗ trợ (vd: Java, C#, Python) -->
-{#    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/mode/clike/clike.min.js"></script>#}
-{#    <!-- Java -->#}
-{#    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/mode/python/python.min.js"></script>#}
-{#    <!-- Python -->#}
+    {#    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/mode/clike/clike.min.js"></script>#}
+    {#    <!-- Java -->#}
+    {#    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/mode/python/python.min.js"></script>#}
+    {#    <!-- Python -->#}
 
 </head>
 <body class="">
@@ -260,23 +260,57 @@
 <script>
 
     // Kích hoạt CodeMirror trên textarea có id "code-editor"
-    function activateCodeMirror() {
-        var editor = CodeMirror.fromTextArea(document.getElementById("code-editor-1"), {
-            lineNumbers: true, // Hiển thị số dòng
-            mode: "text/x-sql", // Ngôn ngữ lập trình (vd: Java, C#, Python)
-            theme: "dracula", // Chủ đề giao diện (vd: "default", "darcula", "3024-day", "3024-night",...)
-            indentUnit: 4, // Kích thước khoảng cách thụt vào (vd: 4 hoặc 2)
-        });
 
-        var editor2 = CodeMirror.fromTextArea(document.getElementById("code-editor-2"), {
-            lineNumbers: true, // Hiển thị số dòng
-            mode: "text/x-plsql", // Ngôn ngữ lập trình (vd: Java, C#, Python)
-            theme: "dracula", // Chủ đề giao diện (vd: "default", "darcula", "3024-day", "3024-night",...)
-            indentUnit: 4, // Kích thước khoảng cách thụt vào (vd: 4 hoặc 2)
-        });
+    var editor = CodeMirror.fromTextArea(document.getElementById("code-editor-1"), {
+        lineNumbers: true, // Hiển thị số dòng
+        mode: "text/x-sql", // Ngôn ngữ lập trình (vd: Java, C#, Python)
+        theme: "dracula", // Chủ đề giao diện (vd: "default", "darcula", "3024-day", "3024-night",...)
+        indentUnit: 4, // Kích thước khoảng cách thụt vào (vd: 4 hoặc 2)
+    });
+
+    var editor2 = CodeMirror.fromTextArea(document.getElementById("code-editor-2"), {
+        lineNumbers: true, // Hiển thị số dòng
+        mode: "text/x-plsql", // Ngôn ngữ lập trình (vd: Java, C#, Python)
+        theme: "dracula", // Chủ đề giao diện (vd: "default", "darcula", "3024-day", "3024-night",...)
+        indentUnit: 4, // Kích thước khoảng cách thụt vào (vd: 4 hoặc 2)
+    });
+
+
+    {#activateCodeMirror();#}
+
+    async function genParams() {
+        console.log("genParams")
+        const formData = new FormData();
+        formData.append("editor", editor2.getValue());
+        try {
+            const respone = await fetch('/convert-params', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await respone.json()
+            editor.setValue(data.to_code)
+            {#editor2.setValue(data.to_code)#}
+        } catch (error) {
+            console.log('error', error)
+        }
     }
 
-    activateCodeMirror();
+    async function convertCode() {
+        const formData = new FormData();
+        formData.append("code-editor-1", editor.getValue());
+        try {
+            const respone = await fetch('/convert_editor', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await respone.json()
+            editor2.setValue(data.to_code)
+        } catch (error) {
+            console.log('error', error)
+        }
+    }
 </script>
 
 </body>

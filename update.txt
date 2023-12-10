@@ -110,3 +110,41 @@
    $CHAR[1]
    $CHAR[2]
    $CHAR[3]
+
+
+
+Set variable = $ORDER(@$$$GlobalConstant@(Subscript,...))
+Set variable = $ORDER(@$$$GlobalConstant@(Subscript,...), Direction)
+Set variable = $ORDER(@$$$GlobalConstant@(Subscript,...), Direction, Target)
+Kill @$$$GlobalConstant@(Subscript,...)
+Kill @"^GlobalName"@(Subscript,...)
+Kill ^GlobalName(Subscript,...)
+Set @$$$GlobalConstant@(Subscript,...) = Value
+Set @"^GlobalName"@(Subscript,...) = Value
+Set ^GlobalName(Subscript,...) = Value
+Lock +@$$$GlobalConstant@(Subscript,...):TimeOut
+Lock +@"^GlobalName"@(Subscript,...):TimeOut
+Lock +^GlobalName(Subscript,...):TimeOut
+
+1.  Set variable = $ORDER(@"^GlobalName"@(Subscript,...))
+    Set variable = $ORDER(@"^GlobalName"@(Subscript,...), Direction)
+    Set variable = $ORDER(@"^GlobalName"@(Subscript,...), Direction, Target)
+2.  $GET(@$$$GlobalConstant@(Subscript,...))
+5.  fix partern if {continue}
+6.  fix lỗi order trả 1 line
+7.  Tích hợp gen parameter from oracle
+
+ fix  Set UserKey = qHandle(0) -> UserKey := COMMON.C_LISTGET(qHandle, 0);
+ fix  Set qHandle(0) = "" -> COMMON.C_LISTSET(qHandle, 0, NULL)
+ $ZNAME -> PACKAGE_NAME
+ $ZN -> PACKAGE_NAME
+ Set $Ze = abx => -- Set $Ze = abx
+ Set $Zerror = abx => -- Set $Zerror = abx
+ NEW $ESTACK -> -- NEW $ESTACK
+
+ ------------------------------------------------------------------------
+check lỗi IF -> lý do comment trùng dòng IF gây xung đột pattern -> bên dự án cần xuống dòng đoạn comment trước khi migrate
+update code genparam tích hợp từ dự án
+fix lỗi Set qHandle(1) = nct -> COMMON.C_LISTSET(qHandle, 1, nct)
+update beautiful code
+update pattern Set variable = $ORDER(^GlobalName(Subscript,...))

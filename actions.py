@@ -1,5 +1,3 @@
-from enum import member
-
 from flask import Blueprint, request, render_template, redirect, url_for, flash, Response, jsonify
 import re
 import os
@@ -7,19 +5,287 @@ import xml.dom.minidom
 import logging
 import textwrap
 
+import oracledb
+
+# fix loi charmap deoce when build exe
+from cryptography.hazmat.primitives.kdf import pbkdf2
+import idna
+import sys
+
+os.environ["NLS_LANG"] = "AMERICAN_AMERICA.AL32UTF8"
+# end fix
+
 # Cấu hình logging
-logging.basicConfig(filename='logfile.txt', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(filename='logfile.txt', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
+                    encoding="utf-8")
 
 logging.info('#################################################')
 logging.info('#                 Start APP                     #')
 logging.info('#################################################')
-
+sys.stdout.reconfigure(encoding='utf-8')
 actions = Blueprint('actions', __name__, template_folder='templates')
 
 
-# @actions.route('/')
-# def index():
-#     return render_template('index.html')
+# test connection
+# try:
+#     username = "sfmdev"
+#     password = "Fpt2023"
+#     service_name = "spica"  # Đây là tên dịch vụ Oracle
+#     host = "10.98.100.102"
+#     port = 1521
+#
+#     dsn = f'{username}/{password}@{host}:{port}/{service_name}'
+#     connection = oracledb.connect(dsn, encoding="utf-8")
+#     print("Kết nối OracleDB thành công!")
+# except Exception as e:
+#     logging.info(f"Lỗi khi kết nối Oracle: {e}")
+
+
+def count_leading_spaces(line):
+    """Đếm số khoảng trắng ở đầu mỗi dòng."""
+    count = 0
+    for char in line:
+        if char == ' ':
+            count += 1
+        elif char == '\t':
+            count += 3
+        else:
+            break  # Ngừng khi gặp ký tự không phải khoảng trắng
+    return count
+
+
+# tich hop code
+def unique(listparam):
+    # initialize a null list
+    unique_list = []
+
+    # traverse for all elements
+    max_length = 0
+    for x in listparam:
+        # do not get character after '.' -- exp:(newdata.col :=  -> get 'newdata' only)
+        if x.count(".") > 0:
+            x = x.split('.')[0]
+        # check if exists in unique_list || remove space
+        if x.strip() not in unique_list:
+            unique_list.append(x.strip())
+            # get max length to format code:
+            x_length = len(x)
+            if max_length < x_length:
+                max_length = x_length
+
+                # print list
+    unique_list2 = []
+    for x in unique_list:
+        if (x.strip().upper() == 'RET'
+                or x.strip().upper() == 'CNT'
+                or x.strip().upper() == 'WRET'
+                or x.strip().upper() == 'MAXCNT'
+                or x.strip().upper() == 'DATACOUNT'
+                or x.strip().upper() == '"COUNT"'
+                or x.strip().upper() == 'ERRCOUNT'):
+            x = x.ljust(max_length, ' ') + ' NUMBER;'
+            unique_list2.append(x.strip())
+        elif x.strip().upper() == 'UPDATEINFO' or x.strip().upper() == 'NEWUPDATEINFO':
+            x = x.ljust(max_length, ' ') + ' COM_UPDATE_INFO;'
+            unique_list2.append(x.strip())
+        elif x.strip().upper().startswith('LIST') or x.strip().upper().startswith(
+                'POLIST') or x.strip().upper().startswith('INLIST'):
+            x = x.ljust(max_length, ' ') + ' STRING_ARRAY;'
+            unique_list2.append(x.strip())
+        else:
+            x = x.ljust(max_length, ' ') + ' VARCHAR2(4000);'
+            unique_list2.append(x.strip())
+        print(x)
+
+    return unique_list2
+
+
+def transform_input(input_str):
+    # Loại bỏ "STRING_ARRAY(" và ")"
+    stripped_str = input_str.replace("STRING_ARRAY(", "")
+    stripped_str = stripped_str[:-1]
+
+    # Tách thành một danh sách các biến
+    variables_list = []
+    inside_variable = False
+    current_variable = ""
+    last_index = len(stripped_str) - 1
+    for index, char in enumerate(stripped_str):
+        if (char == ',' and not inside_variable) or (index == last_index):
+            inside_variable = False
+            variables_list.append(current_variable.strip())
+            current_variable = ""
+            continue
+
+        elif char == '$' and not inside_variable:
+            inside_variable = True
+            current_variable += char
+        elif char == ',' and inside_variable:
+            current_variable += char
+        elif char == ')' and inside_variable:
+            current_variable += char
+            inside_variable = False
+            variables_list.append(current_variable.strip())
+            current_variable = ""
+        else:
+            current_variable += char
+
+    # Thêm dấu nháy đơn cho các biến không có dấu nháy
+    for i, var in enumerate(variables_list):
+        if "'" not in var:
+            variables_list[i] = f"'{var}'"
+
+    output_str = "STRING_ARRAY(" + ", ".join(variables_list) + ")"
+
+    return output_str
+
+
+def call_func_oracle(function_name, params):
+    try:
+        logging.info("call_func_oracle : function_name= " + str(function_name) + ",params = " + str(params))
+        username = "sfmdev"
+        password = "Fpt2023"
+        service_name = "spica"  # Đây là tên dịch vụ Oracle
+        host = "10.98.100.102"
+        port = 1521
+        package_name = 'MIGRATE_UTILS'
+        dsn = f'{username}/{password}@{host}:{port}/{service_name}'
+        connection = oracledb.connect(dsn, encoding="utf-8")
+        # Nếu không có lỗi, kết nối thành công
+        print("Kết nối OracleDB thành công!")
+        cursor = connection.cursor()
+        cursor.callproc("DBMS_OUTPUT.ENABLE")
+
+        if function_name == 'LockGlobal':
+            logging.info("call_func_oracle LockGlobal")
+            m_globalConstant = ''
+            m_subscript = ''
+            m_timeout = ''
+            for match_lock in params:
+                m_globalConstant = match_lock[0]
+                m_subscript = 'STRING_ARRAY' + match_lock[1]
+                stripped_str = m_subscript.replace("STRING_ARRAY(", "").rstrip(")")
+                # Tách thành một danh sách các biến
+                variables_list = [f"'{var.strip()}'" for var in stripped_str.split(',')]
+                # Tạo chuỗi output
+                print("input: " + m_subscript)
+                print("output: " + transform_input(m_subscript))
+                # output_str = "STRING_ARRAY(" + ", ".join(variables_list) + ")"
+                output_str = transform_input(m_subscript)
+                if len(match_lock) > 2:
+                    m_timeout = match_lock[2]
+            if m_timeout != '':
+                print(f'{package_name}.{function_name}({m_globalConstant}, {output_str}, {m_timeout});')
+                plsql = f"""
+                    DECLARE
+                        Ret VARCHAR2(4000);
+                    BEGIN
+                        Ret := {package_name}.{function_name}('{m_globalConstant}', {output_str}, {m_timeout});
+                    END;
+                """
+            else:
+                plsql = f"""
+                    DECLARE
+                        Ret VARCHAR2(4000);
+                    BEGIN
+                        Ret := {package_name}.{function_name}('{m_globalConstant}', {output_str});
+                    END;
+                """
+        elif function_name == 'GetGlobal':
+            for match_set in params:
+                m_globalConstant = match_set[0]
+                m_subscript = match_set[1]
+                # Tách thành một danh sách các biến
+                stripped_str = m_subscript.replace("(", "").replace(")", "")
+                variables_list = [f"'{var.strip()}'" for var in stripped_str.split(',')]
+                output_str = "STRING_ARRAY(" + ", ".join(variables_list) + ")"
+                print(f'{package_name}.{function_name}({m_globalConstant}, {output_str});')
+            plsql = f"""
+                DECLARE
+                    Ret VARCHAR2(4000);
+                BEGIN
+                    Ret := {package_name}.{function_name}('{m_globalConstant}', {output_str});
+                END;
+            """
+        elif function_name == 'SetGlobal':
+            for match_set in params:
+                m_globalConstant = match_set[0]
+                m_subscript = match_set[1]
+                m_value = match_set[2]
+                # Tách thành một danh sách các biến
+                stripped_str = m_subscript.replace("(", "").replace(")", "")
+                variables_list = [f"'{var.strip()}'" for var in stripped_str.split(',')]
+                output_str = "STRING_ARRAY(" + ", ".join(variables_list) + ")"
+                print(f'{package_name}.{function_name}({m_globalConstant}, {output_str},{m_value});')
+            plsql = f"""
+                DECLARE
+                    Ret VARCHAR2(4000);
+                BEGIN
+                    Ret := {package_name}.{function_name}('{m_globalConstant}', {output_str},'{m_value}');
+                END;
+            """
+        elif function_name == "KillGlobal":
+            for match_set in params:
+                m_globalConstant = match_set[0]
+                m_subscript = match_set[1]
+                # Tách thành một danh sách các biến
+                stripped_str = m_subscript.replace("(", "").replace(")", "")
+                variables_list = [f"'{var.strip()}'" for var in stripped_str.split(',')]
+                output_str = "STRING_ARRAY(" + ", ".join(variables_list) + ")"
+                print(f'{package_name}.{function_name}({m_globalConstant}, {output_str});')
+            plsql = f"""
+                DECLARE
+                    Ret VARCHAR2(4000);
+                BEGIN
+                    Ret := {package_name}.{function_name}('{m_globalConstant}', {output_str});
+                END;
+            """
+        elif function_name == "OrderGlobal":
+            for match_order in params:
+                m_globalConstant = match_order[1]
+                m_subscript = match_order[2]
+                if len(match_order) > 3:
+                    m_direction = match_order[3]
+                if len(match_order) > 4:
+                    m_target = match_order[4]
+
+                # Tách thành một danh sách các biến
+                variables_list = [f"'{var.strip()}'" for var in m_subscript.split(',')]
+                output_str = "STRING_ARRAY(" + ", ".join(variables_list) + ")"
+                if len(match_order) > 3:
+                    output_str = output_str + ", '" + m_direction + "'"
+                if len(match_order) > 4:
+                    output_str = output_str + ", '" + m_target + "'"
+                print(f'{package_name}.{function_name}({m_globalConstant}, {output_str});')
+            plsql = f"""
+                DECLARE
+                    Ret VARCHAR2(4000);
+                BEGIN
+                    Ret := {package_name}.{function_name}('{m_globalConstant}', {output_str});
+                END;
+            """
+        else:
+            print("call lỗi")
+            plsql = ''
+
+        cursor.execute(plsql)
+        status_var = cursor.var(oracledb.NUMBER)
+        line_var = cursor.var(oracledb.STRING)
+        results = ''
+        while True:
+            cursor.callproc("DBMS_OUTPUT.GET_LINE", (line_var, status_var))
+            if status_var.getvalue() != 0:
+                break
+            results += line_var.getvalue() + '\n'  # In giá trị của Ret từ DBMS_OUTPUT
+
+        connection.close()
+        return results
+    except Exception as e:
+        print(f"Lỗi khi kết nối Oracle: {e}")
+        return f"{e}"
+
+
+# print(call_func_oracle('LockGlobal'))
 
 
 @actions.route('/convert-cls', methods=['POST', 'GET'])
@@ -100,6 +366,8 @@ def check_condition(condition):
                     new_value = "(COMMON.IS_NOT_EQUAL(" + left_cond + "," + right_cond + "))"
                 elif flag_first == 1 and flag_last == 2:
                     new_value = "(COMMON.IS_NOT_EQUAL(" + left_cond + "," + right_cond + ")))"
+                elif flag_first == 1 and flag_last == 3:
+                    new_value = "(COMMON.IS_NOT_EQUAL(" + left_cond + "," + right_cond + "))))"
                 elif flag_first == 2 and flag_last == 1:
                     new_value = "((COMMON.IS_NOT_EQUAL(" + left_cond + "," + right_cond + "))"
                 elif flag_first == 2 and flag_last == 0:
@@ -135,7 +403,7 @@ def check_condition(condition):
                 elif flag_first == 1 and flag_last == 3:
                     new_value = "(COMMON.IS_NOT_EQUAL(" + left_cond + ", NULL" + "))))"
                 new_condition.append(new_value)
-        #TH2
+        # TH2
         elif "=" in cond and (">=" not in cond) and ("<=" not in cond):
             left_cond = (cond.strip()).split("=")[0]
             right_cond = (cond.strip()).split("=")[1]
@@ -1152,6 +1420,31 @@ END {file_convert_name};
         return jsonify({'status': 'success', 'message': 'Check File error!', 'data': str(e)})
 
 
+@actions.route('/convert-params', methods=['POST'])
+def convert_params():
+    print("[convert_params] : ")
+    logging.info("#### [convert_to_params] ####")
+    try:
+        if request.method == 'POST':
+            from_code = request.form['editor']
+            # Extracting characters before :=
+            variables = re.findall(r'(.+)(?=\s*:=)', from_code)
+            # Display the extracted and unique variables
+            formatted_variables = unique(variables)
+            # Format with line breaks
+            formatted_variables_new = '\n'.join(formatted_variables)
+            return jsonify({
+                "from_code": from_code,
+                "to_code": formatted_variables_new
+            })
+
+    except Exception as e:
+        flash('Error :' + str(e), 'danger')
+        print("[convert_editor] error : " + str(e))
+        logging.error(" [convert_editor] error : " + str(e))
+        return redirect(url_for('actions.convert_code'))
+
+
 @actions.route('/convert_editor', methods=['POST'])
 def convert_editor():
     print("[convert_editor] : ")
@@ -1255,7 +1548,11 @@ def convert_editor():
 
             to_code = convert_cache_to_oracle(to_code_temp, conversion_rules)
 
-            return render_template('convert-code.html', from_code=from_code, to_code=to_code)
+            # return render_template('convert-code.html', from_code=from_code, to_code=to_code)
+            return jsonify({
+                "from_code": from_code,
+                "to_code": to_code
+            })
 
     except Exception as e:
         flash('Error :' + str(e), 'danger')
@@ -1361,7 +1658,6 @@ def read_conversion_rules_from_file(file_path):
 
 def convert_cache_to_oracle(cache_code, conversion_rules):
     oracle_code = cache_code
-
     for rule in conversion_rules:
         cache_pattern, oracle_replace = rule
         oracle_code = re.sub(cache_pattern.strip(), oracle_replace.strip(), oracle_code, flags=re.IGNORECASE)
@@ -1384,7 +1680,7 @@ def process_code(source_code):
     try_catch_pattern = r'Try\s*\{([\s\S]*?)([^{}]+)\}\s*Catch([^{]+)\{([^}]+)\}'
     matches_try = re.findall(try_catch_pattern, source_code.strip(), flags=re.IGNORECASE)
     if matches_try:
-        source_code = re.sub(try_catch_pattern, r'BEGIN\n  \1 \2 \nEXCEPTION\n  WHEN OTHERS THEN\n   \3\4 \nEND;',
+        source_code = re.sub(try_catch_pattern, r'BEGIN\n\1 \2 \nEXCEPTION\n  WHEN OTHERS THEN\n   \3\4 \nEND;',
                              source_code, flags=re.IGNORECASE)
 
     # for step không lồng nhau (ko lồng và không có if else do while )
@@ -1394,14 +1690,200 @@ def process_code(source_code):
     #     source_code = re.sub(pattern_for_step_1, r'FOR \2 IN \3..\5\n\t LOOP \n\t   \6\n\tEND LOOP;',
     #                          source_code, flags=re.IGNORECASE)
 
+    # các pattern cần call db
+    parttern_lock_1 = r'Lock\s*\+\(\@\$\$\$([^@]*)\@([^:]*)\)\:([0-9]*)'
+    parttern_lock_2 = r'Lock\s*\+\@\$\$\$([^@]*)\@([^\n]*)\:([0-9]*)'
+    parttern_lock_3 = r'Lock\s*\+\@\$\$\$([^@]*)\@([^\n]*)'
+
+    pattern_db_set_1 = r'Set\s*\@\$\$\$([^@]*)\@([^\n]*)\s*=\s*([^\n]*)'
+    pattern_db_set_2 = r'Set\s*\@\"\^([^@]*)\"\@([^\n]*)\s*=\s*([^\n]*)'
+    pattern_db_set_3 = r'Set\s*\^([^(]*)([^\n]*)\s*=\s*([^\n]*)'
+
+    pattern_db_kill_1 = r'Kill\s*\@\$\$\$([^@]*)\@([^\n]*)'
+    pattern_db_kill_2 = r'Kill\s*\@\"\^([^"]*)\"\@([^\n]*)'
+    pattern_db_kill_3 = r'Kill\s*\^([^(\n]*)([^\n]*)'
+
+    pattern_db_order_1 = r'Set\s*([^=]*)\s*\=\s*\$ORDER\(\@\$\$\$([^@]*)\@\(([^)]*)\)\)'
+    pattern_db_order_1_1 = r'Set\s*([^=]*)\s*\=\s*\$ORDER\(\@\"\^([^"]*)\"\@\(([^)]*)\)\)'
+    pattern_db_order_1_2 = r'Set\s*([^=]*)\s*\=\s*\$ORDER\(\^([^@]*)\(([^)]*)\)\)'
+    pattern_db_order_2 = r'Set\s*([^=]*)\s*\=\s*\$ORDER\(\@\$\$\$([^@]*)\@\(([^)]*)\)\s*,([^,]*)\s*\)'
+    pattern_db_order_2_1 = r'Set\s*([^=]*)\s*\=\s*\$ORDER\(\@\"\^([^"]*)\"\@\(([^)]*)\)\s*,([^,]*)\s*\)'
+    pattern_db_order_3 = r'Set\s*([^=]*)\s*\=\s*\$ORDER\(\@\$\$\$([^@]*)\@\(([^)]*)\)\s*,([^,]*)\s*,([^,]*)\)'
+    pattern_db_order_3_1 = r'Set\s*([^=]*)\s*\=\s*\$ORDER\(\@\"\^([^@]*)\"\@\(([^)]*)\)\s*,\s*([^,\n]*)\s*,([^,]*)\)'
+
+    # $GET(@$$$GlobalConstant@(Subscript,...))
+    pattern_db_get_1 = r'\$GET\(\@\$\$\$([^@]*)\@([^\n]*)\)'
+    # $GET(@"^GlobalName"@(Subscript,...))
+    pattern_db_get_2 = r'\$GET\(\@\"\^([^@]*)\@([^\n]*)\)'
+    # $GET(^GlobalName(Subscript,...))
+    pattern_db_get_3 = r'\$GET\(\^([^(]*)([^\n]*)\)'
+
     code_lines1 = source_code.split('\n')
     new_source = []
     for line1 in code_lines1:
         if "#;" in line1:
             continue
         else:
-            new_source.append(line1)
-            continue
+            if line1.strip() != '':
+                if re.findall(parttern_lock_1, line1.strip(), flags=re.IGNORECASE):
+                    matches_lock_1 = re.findall(parttern_lock_1, line1.strip(), flags=re.IGNORECASE)
+                    results = call_func_oracle('LockGlobal', matches_lock_1)
+                    print(results)
+                    if (results.strip() != "ERROR") and (results.strip() != "CAN'T FIND THE TARGET TABLE"):
+                        line1 = re.sub(parttern_lock_1, 'TEST := ' + results, line1,
+                                       flags=re.IGNORECASE)
+                    new_source.append(line1)
+                elif re.findall(parttern_lock_2, line1.strip(), flags=re.IGNORECASE):
+                    matches_lock_2 = re.findall(parttern_lock_2, line1.strip(), flags=re.IGNORECASE)
+                    results = call_func_oracle('LockGlobal', matches_lock_2)
+                    print(results)
+                    if (results.strip() != "ERROR") and (results.strip() != "CAN'T FIND THE TARGET TABLE"):
+                        line1 = re.sub(parttern_lock_2, 'TEST := ' + results, line1,
+                                       flags=re.IGNORECASE)
+                    new_source.append(line1)
+                elif re.findall(parttern_lock_3, line1.strip(), flags=re.IGNORECASE):
+                    matches_lock_3 = re.findall(parttern_lock_3, line1.strip(), flags=re.IGNORECASE)
+                    results = call_func_oracle('LockGlobal', matches_lock_3)
+                    print(results)
+                    if (results.strip() != "ERROR") and (results.strip() != "CAN'T FIND THE TARGET TABLE"):
+                        line1 = re.sub(parttern_lock_3, 'TEST := ' + results, line1,
+                                       flags=re.IGNORECASE)
+                    new_source.append(line1)
+
+                #### pattern GET
+                elif re.findall(pattern_db_get_1, line1.strip(), flags=re.IGNORECASE):
+                    matches_db_get_1 = re.findall(pattern_db_get_1, line1.strip(), flags=re.IGNORECASE)
+                    results = call_func_oracle('GetGlobal', matches_db_get_1)
+                    print(results)
+                    if (results.strip() != "ERROR") and (results.strip() != "CAN'T FIND THE TARGET TABLE"):
+                        line1 = re.sub(pattern_db_get_1, results.replace(";",""), line1, flags=re.IGNORECASE)
+                    new_source.append(line1)
+                elif re.findall(pattern_db_get_2, line1.strip(), flags=re.IGNORECASE):
+                    matches_db_get_2 = re.findall(pattern_db_get_2, line1.strip(), flags=re.IGNORECASE)
+                    results = call_func_oracle('GetGlobal', matches_db_get_2)
+                    print(results)
+                    if (results.strip() != "ERROR") and (results.strip() != "CAN'T FIND THE TARGET TABLE"):
+                        line1 = re.sub(pattern_db_get_2, results.replace(";",""), line1, flags=re.IGNORECASE)
+                    new_source.append(line1)
+                elif re.findall(pattern_db_get_3, line1.strip(), flags=re.IGNORECASE):
+                    matches_db_get_3 = re.findall(pattern_db_get_3, line1.strip(), flags=re.IGNORECASE)
+                    results = call_func_oracle('GetGlobal', matches_db_get_3)
+                    print(results)
+                    if (results.strip() != "ERROR") and (results.strip() != "CAN'T FIND THE TARGET TABLE"):
+                        line1 = re.sub(pattern_db_get_3, results.replace(";",""), line1, flags=re.IGNORECASE)
+                    new_source.append(line1)
+
+                #### pattern SET
+                elif re.findall(pattern_db_set_1, line1.strip(), flags=re.IGNORECASE):
+                    matches_db_set_1 = re.findall(pattern_db_set_1, line1, flags=re.IGNORECASE)
+                    results = call_func_oracle('SetGlobal', matches_db_set_1)
+                    print(results)
+                    if (results.strip() != "ERROR") and (results.strip() != "CAN'T FIND THE TARGET TABLE"):
+                        line1 = re.sub(pattern_db_set_1, results, line1, flags=re.IGNORECASE)
+                    new_source.append(line1)
+                elif re.findall(pattern_db_set_2, line1.strip(), flags=re.IGNORECASE):
+                    matches_db_set_2 = re.findall(pattern_db_set_2, line1.strip(), flags=re.IGNORECASE)
+                    results = call_func_oracle('SetGlobal', matches_db_set_2)
+                    print(results)
+                    if (results.strip() != "ERROR") and (results.strip() != "CAN'T FIND THE TARGET TABLE"):
+                        line1 = re.sub(pattern_db_set_2, results, line1, flags=re.IGNORECASE)
+                    new_source.append(line1)
+                elif re.findall(pattern_db_set_3, line1.strip(), flags=re.IGNORECASE):
+                    matches_db_set_3 = re.findall(pattern_db_set_3, line1.strip(), flags=re.IGNORECASE)
+                    results = call_func_oracle('SetGlobal', matches_db_set_3)
+                    print(results)
+                    if (results.strip() != "ERROR") and (results.strip() != "CAN'T FIND THE TARGET TABLE"):
+                        line1 = re.sub(pattern_db_set_3, results, line1, flags=re.IGNORECASE)
+                    new_source.append(line1)
+
+                #### pattern kill
+                elif re.findall(pattern_db_kill_1, line1.strip(), flags=re.IGNORECASE):
+                    matches_db_kill_1 = re.findall(pattern_db_kill_1, line1.strip(), flags=re.IGNORECASE)
+                    results = call_func_oracle('KillGlobal', matches_db_kill_1)
+                    print(results)
+                    if (results.strip() != "ERROR") and (results.strip() != "CAN'T FIND THE TARGET TABLE"):
+                        line1 = re.sub(pattern_db_kill_1, results, line1, flags=re.IGNORECASE)
+                    new_source.append(line1)
+                elif re.findall(pattern_db_kill_2, line1.strip(), flags=re.IGNORECASE):
+                    matches_db_kill_2 = re.findall(pattern_db_kill_2, line1.strip(), flags=re.IGNORECASE)
+                    results = call_func_oracle('KillGlobal', matches_db_kill_2)
+                    print(results)
+                    if (results.strip() != "ERROR") and (results.strip() != "CAN'T FIND THE TARGET TABLE"):
+                        line1 = re.sub(pattern_db_kill_2, results, line1, flags=re.IGNORECASE)
+                    new_source.append(line1)
+                elif re.findall(pattern_db_kill_3, line1.strip(), flags=re.IGNORECASE):
+                    matches_db_kill_3 = re.findall(pattern_db_kill_3, line1.strip(), flags=re.IGNORECASE)
+                    results = call_func_oracle('KillGlobal', matches_db_kill_3)
+                    print(results)
+                    if (results.strip() != "ERROR") and (results.strip() != "CAN'T FIND THE TARGET TABLE"):
+                        line1 = re.sub(pattern_db_kill_3, results, line1, flags=re.IGNORECASE)
+                    new_source.append(line1)
+
+                #### pattern Order
+                elif re.findall(pattern_db_order_1, line1.strip(), flags=re.IGNORECASE):
+                    matches_db_order_1 = re.findall(pattern_db_order_1, line1.strip(), flags=re.IGNORECASE)
+                    results = call_func_oracle('OrderGlobal', matches_db_order_1)
+                    print(results)
+                    if (results.strip() != "ERROR") and (results.strip() != "CAN'T FIND THE TARGET TABLE"):
+                        line1 = re.sub(pattern_db_order_1, r'\1:= ' + results, line1, flags=re.IGNORECASE)
+                    new_source.append(line1)
+                elif re.findall(pattern_db_order_1_1, line1.strip(), flags=re.IGNORECASE):
+                    matches_db_order_1_1 = re.findall(pattern_db_order_1_1, line1.strip(), flags=re.IGNORECASE)
+                    results = call_func_oracle('OrderGlobal', matches_db_order_1_1)
+                    print(results)
+                    if (results.strip() != "ERROR") and (results.strip() != "CAN'T FIND THE TARGET TABLE"):
+                        line1 = re.sub(pattern_db_order_1_1, r'\1:= ' + results, line1, flags=re.IGNORECASE)
+                    new_source.append(line1)
+                elif re.findall(pattern_db_order_1_2, line1.strip(), flags=re.IGNORECASE):
+                    matches_db_order_1_2 = re.findall(pattern_db_order_1_2, line1.strip(), flags=re.IGNORECASE)
+                    results = call_func_oracle('OrderGlobal', matches_db_order_1_2)
+                    print(results)
+                    if (results.strip() != "ERROR") and (results.strip() != "CAN'T FIND THE TARGET TABLE"):
+                        line1 = re.sub(pattern_db_order_1_2, r'\1:= ' + results, line1, flags=re.IGNORECASE)
+                    new_source.append(line1)
+                elif re.findall(pattern_db_order_2, line1.strip(), flags=re.IGNORECASE):
+                    matches_db_order_2 = re.findall(pattern_db_order_2, line1.strip(), flags=re.IGNORECASE)
+                    results = call_func_oracle('OrderGlobal', matches_db_order_2)
+                    print(results)
+                    if (results.strip() != "ERROR") and (results.strip() != "CAN'T FIND THE TARGET TABLE"):
+                        line1 = re.sub(pattern_db_order_2, r'\1:= ' + results, line1, flags=re.IGNORECASE)
+                    new_source.append(line1)
+                elif re.findall(pattern_db_order_2_1, line1.strip(), flags=re.IGNORECASE):
+                    matches_db_order_2_1 = re.findall(pattern_db_order_2_1, line1.strip(), flags=re.IGNORECASE)
+                    results = call_func_oracle('OrderGlobal', matches_db_order_2_1)
+                    print(results)
+                    if (results.strip() != "ERROR") and (results.strip() != "CAN'T FIND THE TARGET TABLE"):
+                        line1 = re.sub(pattern_db_order_2_1, r'\1:= ' + results, line1, flags=re.IGNORECASE)
+                    new_source.append(line1)
+                elif re.findall(pattern_db_order_3, line1.strip(), flags=re.IGNORECASE):
+                    matches_db_order_3 = re.findall(pattern_db_order_3, line1.strip(), flags=re.IGNORECASE)
+                    results = call_func_oracle('OrderGlobal', matches_db_order_3)
+                    print(results)
+                    if (results.strip() != "ERROR") and (results.strip() != "CAN'T FIND THE TARGET TABLE"):
+                        value_order_3 = ''
+                        for match_order_value in matches_db_order_3:
+                            value_order_3 = match_order_value[0]
+                        line1 = re.sub(pattern_db_order_3, value_order_3 + ' := ' + results, line1,
+                                       flags=re.IGNORECASE)
+                    new_source.append(line1)
+                elif re.findall(pattern_db_order_3_1, line1.strip(), flags=re.IGNORECASE):
+                    matches_db_order_3_1 = re.findall(pattern_db_order_3_1, line1.strip(), flags=re.IGNORECASE)
+                    results = call_func_oracle('OrderGlobal', matches_db_order_3_1)
+                    print(results)
+                    if (results.strip() != "ERROR") and (results.strip() != "CAN'T FIND THE TARGET TABLE"):
+                        value_order_3_1 = ''
+                        for match_order_value_3_1 in matches_db_order_3_1:
+                            value_order_3_1 = match_order_value_3_1[0]
+                        line1 = re.sub(pattern_db_order_3_1, value_order_3_1 + ' := ' + results.strip(), line1,
+                                       flags=re.IGNORECASE)
+                    new_source.append(line1)
+                else:
+                    new_source.append(line1)
+                    continue
+            else:
+                new_source.append(line1)
+                continue
+
     result_new = ""
     for line_new in new_source:
         if "While".upper() in line_new.upper():
@@ -1412,6 +1894,7 @@ def process_code(source_code):
         result_new += line_new + "\n"
 
     source_code = result_new
+
     # For[2] lồng nhau
     source_code = checkLine(source_code)
 
@@ -1474,7 +1957,10 @@ def process_code(source_code):
 
     code_lines = source_code.split('\n')
     for line in code_lines:
+        if "} ElseIf $$GetLockCount^Com.UtilityLib($$$MstKakakuD, piHospCd) > 1 {" in line:
+            print("mrd")
         if re.findall(pattern_if_2, line.strip(), flags=re.IGNORECASE):
+            count_space = count_leading_spaces(line)
             if ("If ".upper() in line.upper()) and ("ElseIf".upper() not in line.upper()):
                 if "||" in line:
                     line = line.replace("||", "OR")
@@ -1489,7 +1975,10 @@ def process_code(source_code):
                         condition = (line).split("if ")[1].split("{")[0]
 
                     condition = check_condition(condition)
-            line = re.sub(pattern_if_2, 'IF ' + condition + r' \2', line.strip(), flags=re.IGNORECASE)
+            line = re.sub(pattern_if_2,
+                          count_space * ' ' + 'IF ' + condition + r' THEN\n' + count_space * ' ' + r'   \2 \n' + count_space * ' ' + 'END IF;',
+                          line.strip(),
+                          flags=re.IGNORECASE)
             processed_code.append(line)
             continue
 
@@ -1514,23 +2003,28 @@ def process_code(source_code):
             processed_code.append(line)
             continue
         if re.findall(pattern_multi_set_3, line.strip(), flags=re.IGNORECASE):
-            line = re.sub(pattern_multi_set_3, r'\1 := \2; \3 := \4; \5 := \6;', line.strip(), flags=re.IGNORECASE)
+            count_space = count_leading_spaces(line)
+            line = re.sub(pattern_multi_set_3,
+                          count_space * ' ' + r'\1 := \2;\n' + count_space * ' ' + r'\3 := \4;\n' + count_space * ' ' + r'\5 := \6;',
+                          line.strip(), flags=re.IGNORECASE)
             processed_code.append(line)
             continue
         if re.findall(pattern_multi_set_2, line.strip(), flags=re.IGNORECASE):
-            line = re.sub(pattern_multi_set_2, r'\1 := \2; \3 := \4;', line.strip(), flags=re.IGNORECASE)
+            count_space = count_leading_spaces(line)
+            line = re.sub(pattern_multi_set_2, count_space * ' ' + r'\1 := \2;\n' + count_space * ' ' + r'\3 := \4;',
+                          line.strip(), flags=re.IGNORECASE)
             processed_code.append(line)
             continue
         if re.findall(pattern_dola_dola_dola_1, line.strip(), flags=re.IGNORECASE):
             if "@$$$" not in line:
-                line = re.sub(pattern_dola_dola_dola_1, r"COMMON.GET_CONSTANT('\1',INCLUDE_LIST)", line.strip(),
+                line = re.sub(pattern_dola_dola_dola_1, r"COMMON.GET_CONSTANT('\1',INCLUDE_LIST)", line,
                               flags=re.IGNORECASE)
             if ("If".upper() or ("While").upper() or ("ElseIf").upper() or ("QUIT:").upper()) not in line.upper():
                 processed_code.append(line)
                 continue
         # if (re.findall(pattern3, line.strip())) and (("if".upper or "else".upper() or "elseif") not in line.upper()):
         if re.findall(pattern3, line.strip(), flags=re.IGNORECASE):
-            line = re.sub(pattern3, r'--\2', line.strip(), flags=re.IGNORECASE)
+            line = re.sub(pattern3, r'--\2', line, flags=re.IGNORECASE)
             processed_code.append(line)
             continue
         # if re.findall(matche_pattern_char0, line, flags=re.IGNORECASE):
@@ -1575,6 +2069,7 @@ def process_code(source_code):
             continue
 
         if ("If ".upper() in line.upper()) and ("ElseIf".upper() not in line.upper()):
+            count_space = count_leading_spaces(line)
             if "||" in line:
                 line = line.replace("||", "OR")
             if "&&" in line:
@@ -1590,18 +2085,20 @@ def process_code(source_code):
                 condition = check_condition(condition)
 
                 stack.append(True)  # Bắt đầu một cấp độ mới
-                processed_code.append(" " * (len(stack) - 1) * 4 + f"IF {condition} THEN")
+                processed_code.append(count_space * ' ' + f"IF {condition} THEN")
             else:
-                processed_code.append(" " * len(stack) * 4 + f"IF {condition} THEN")
+                processed_code.append(count_space * ' ' + f"IF {condition} THEN")
         elif ("Else".upper() in line.upper()) and ("ElseIf".upper() not in line.upper()):
+            count_space = count_leading_spaces(line)
             if "}" in line:
                 if stack:
                     stack.pop()  # Kết thúc một cấp độ
-                processed_code.append(" " * len(stack) * 4 + "ELSE")
+                processed_code.append(count_space * ' ' + "ELSE")
                 stack.append(True)  # Bắt đầu một cấp độ mới
             else:
                 processed_code[-1] += " ELSE"
         elif "ElseIf".upper() in line.upper():
+            count_space = count_leading_spaces(line)
             if "||" in line:
                 line = line.replace("||", "OR")
             if "&&" in line:
@@ -1623,20 +2120,21 @@ def process_code(source_code):
                 else:
                     condition = (line).split("elseif ")[1].split("{")[0]
                 condition = check_condition(condition)
-                processed_code.append(" " * (len(stack) - 1) * 4 + f"ELSIF {condition} THEN")
+                processed_code.append(count_space * ' ' + f"ELSIF {condition} THEN")
             else:
-                processed_code.append(" " * len(stack) * 4 + f"ELSIF {condition} THEN")
+                processed_code.append(count_space * ' ' + f"ELSIF {condition} THEN")
 
         elif "}" in line:
             if stack:
+                count_space = count_leading_spaces(line)
                 line = line.replace("}", "")
                 stack.pop()  # Kết thúc một cấp độ
                 processed_code[-1] += f"\n{line}"  # Đưa dấu "}" xuống dòng mới
-                processed_code.append(" " * len(stack) * 4 + "END IF;")  # Thêm "END IF"
+                processed_code.append(count_space * ' ' + "END IF;")  # Thêm "END IF"
             else:
                 processed_code.append(line)
         else:
-            processed_code.append(" " * len(stack) * 4 + line)
+            processed_code.append(line)
 
     while stack:
         stack.pop()
@@ -1644,6 +2142,7 @@ def process_code(source_code):
 
     result = ""
     for line in processed_code:
+        line = line.replace('\t', '   ')
         result += line + "\n"
     logging.info(" [end process_code if/else]")
     return result
@@ -1738,7 +2237,8 @@ def checkWhile(source_code):
                     pattern_do += pattern_do_loop_end
                 matches_pattern = re.findall(pattern_do, lines_while, flags=re.IGNORECASE)
                 if matches_pattern:
-                    lines_while = re.sub(pattern_do, r'WHILE \1 \n\tLOOP\n  \2 \nEND LOOP;', lines_while,
+                    count_space = count_leading_spaces(lines_while)
+                    lines_while = re.sub(pattern_do, r'WHILE \1\n' + count_space *' ' + r'LOOP\n' + count_space *' ' + r'\2 \n' + count_space *' ' + r'END LOOP;', lines_while,
                                          flags=re.IGNORECASE)
                     for j in range(i + 1, len(lines)):
                         line_to_end += "\n" + lines[j]  # Thêm các dòng tiếp theo vào linenew
@@ -1840,7 +2340,8 @@ def checkDoWhile(source_code):
                     pattern_do += pattern_do_loop_end
                 matches_pattern = re.findall(pattern_do, lines_do, flags=re.IGNORECASE)
                 if matches_pattern:
-                    lines_do = re.sub(pattern_do, r'LOOP\n\t  \2\3 \n\t EXIT WHEN NOT \5 \n END LOOP;', lines_do,
+                    count_space = count_leading_spaces(lines_do)
+                    lines_do = re.sub(pattern_do, r'LOOP\n' + count_space * ' ' + r'   \2\3 \n' + count_space * ' ' + r'   EXIT WHEN NOT \5 \n' + count_space * ' ' + r'END LOOP;', lines_do,
                                       flags=re.IGNORECASE)
                     for j in range(i + 1, len(lines)):
                         line_to_end += "\n" + lines[j]  # Thêm các dòng tiếp theo vào linenew
@@ -1936,7 +2437,8 @@ def checkFor1(source_code):
                     pattern_for += pattern_for_loop_end
                 matches_pattern = re.findall(pattern_for, lines_for, flags=re.IGNORECASE)
                 if matches_pattern:
-                    lines_for = re.sub(pattern_for, r'LOOP\n  \1 \nEND LOOP;\n', lines_for,
+                    count_space = count_leading_spaces(lines_for)
+                    lines_for = re.sub(pattern_for, count_space * ' ' + r'LOOP\n' + count_space * ' ' +  r'\1 \n' + count_space * ' ' +  r'END LOOP;\n', lines_for,
                                        flags=re.IGNORECASE)
                     for j in range(i + 1, len(lines)):
                         line_to_end += "\n" + lines[j]  # Thêm các dòng tiếp theo vào linenew
@@ -2030,7 +2532,8 @@ def checkFor(source_code):
                     pattern_for += pattern_for_loop_end
                 matches_pattern = re.findall(pattern_for, lines_for, flags=re.IGNORECASE)
                 if matches_pattern:
-                    lines_for = re.sub(pattern_for, r'FOR \2 IN \3 .. \5\n\t LOOP \n\t   \6\nEND LOOP;\n', lines_for,
+                    count_space = count_leading_spaces(lines_for)
+                    lines_for = re.sub(pattern_for, count_space * ' ' + r'FOR \2 IN \3 .. \5\n' + count_space * ' ' + r'LOOP\n' + count_space * ' ' + r'   \6\n' + count_space * ' ' + 'END LOOP;\n', lines_for,
                                        flags=re.IGNORECASE)
                     for j in range(i + 1, len(lines)):
                         line_to_end += "\n" + lines[j]  # Thêm các dòng tiếp theo vào linenew
